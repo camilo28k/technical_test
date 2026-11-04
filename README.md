@@ -4,11 +4,17 @@ Aplicación para administrar clientes, cuentas y movimientos financieros mediant
 
 ## Estado
 
-Requerimientos y reglas de negocio integrados en `develop`. Arquitectura y decisiones técnicas en revisión. La implementación de la aplicación aún no ha comenzado.
+Requerimientos y arquitectura integrados en `develop`. Modelo de datos en revisión.
 
 ## Documentación
 
 1. [Requerimientos y reglas de negocio](docs/01-requerimientos-y-reglas.md).
 2. [Arquitectura y decisiones técnicas](docs/02-arquitectura-y-decisiones.md).
+3. [Modelo de datos](docs/03-modelo-de-datos.md).
 
-Los documentos de modelo de datos, plan de implementación y estrategia de pruebas y versionamiento se incorporarán progresivamente tras su revisión.
+Registros de decisiones de arquitectura (ADR):
+
+- [ADR-001 · Separar el dominio mediante puertos y adaptadores](docs/adr/001-puertos-y-adaptadores.md)
+- [ADR-002 · Confirmar saldos y movimientos en una transacción](docs/adr/002-consistencia-de-movimientos.md)
+
+Los próximos avances documentarán el plan de implementación y la estrategia de pruebas y versionamiento.
