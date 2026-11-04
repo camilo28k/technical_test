@@ -1,0 +1,22 @@
+# Plan de implementación por etapas
+
+La implementación comienza tras aprobar los cinco documentos y autorizar la configuración de Spring Boot. Cada fila delimita un incremento revisable en una rama hija de `develop`. Las pruebas de cada funcionalidad se escriben y ejecutan en esa misma rama.
+
+El alcance proviene de los [requerimientos y criterios de aceptación](01-requerimientos-y-reglas.md). Los contratos entre dominio, aplicación y adaptadores siguen la [arquitectura](02-arquitectura-y-decisiones.md). Cada migración incorpora solo la parte del [modelo de datos](03-modelo-de-datos.md) necesaria para el incremento.
+
+| Etapa | Depende de | Entrega | Evidencia para cerrar |
+| --- | --- | --- | --- |
+| 1. Base ejecutable | Aprobación documental | Fijar versiones compatibles, generar el proyecto Java y Spring Boot, configurar la construcción, PostgreSQL y Docker Compose. | Desde un checkout limpio se construye el backend, arranca junto con PostgreSQL y una prueba de integración verifica la conexión. |
+| 2. Clientes | 1 | Migración de clientes y casos de uso REST de alta, consulta, actualización y eliminación. La regla que impide eliminar clientes con productos se completa en la etapa 3. | JUnit 5 y Mockito para servicios y controladores. Verificar el día del cumpleaños en Colombia, auditoría y rechazo de identificaciones duplicadas también en PostgreSQL (CA-01, CA-02, CA-13). |
+| 3. Cuentas | 2 | Migración de cuentas, apertura, consulta, cambios permitidos, estados y cancelación. Completar la protección al eliminar un propietario. | Verificar prefijos, unicidad, saldo inicial, GMF y transiciones. Un cliente con cuenta cancelada sigue protegido. Cubrir CA-03 a CA-05, CA-10, CA-12 y la apertura de CA-14. La cancelación con saldo positivo se prueba desde el dominio y se repite por API en la etapa 4. |
+| 4. Consignación y retiro | 3 | Migraciones de operaciones y movimientos. Actualizar saldo e historial en una transacción y aplicar la disciplina de bloqueo acordada. | Una consignación posterior a la apertura crea su propio movimiento. Con 100,00 COP disponibles y dos retiros concurrentes de 80,00 COP, solo uno se confirma. Verificar estados bloqueados, importes positivos y fondos (CA-06, CA-08, CA-14). |
+| 5. Transferencias | 4 | Confirmar débito y crédito como una operación entre cuentas distintas y activas. | Una prueba de integración provoca un fallo después del débito y comprueba que ambos saldos y el historial conservan sus valores anteriores. Cubrir también misma cuenta y destino inactivo (CA-07, CA-08). |
+| 6. Reversos | 5 | Compensación total vinculada al original. Aplicar unicidad y comprobar estados y fondos en la misma transacción. | Revertir una transferencia restaura ambos saldos y conserva el original. Dos solicitudes concurrentes para el mismo original producen como máximo un reverso. Un reverso rechazado deja intacto el historial (CA-09). |
+| 7. Consultas | 6 | Consultar operaciones y obtener el estado de cuenta con saldo e historial desde una vista consistente. | Verificar una cuenta recién abierta con historial vacío y otra con transferencia y reverso. El saldo coincide con créditos menos débitos (CA-11). |
+| 8. Frontend y recorrido de entrega | 7 | Pantallas para gestionar clientes y cuentas, registrar operaciones, consultar el historial y presentar errores de la API. | Desde un entorno limpio, ejecutar Compose y recorrer alta de cliente, apertura, consignación, transferencia, reverso y consulta. Registrar el resultado y validar el alcance de CA-15. |
+
+**Propuesta para el frontend.** Usar HTML, CSS y JavaScript servidos por Spring Boot en el mismo origen que la API. Para los formularios y consultas previstos, esto permite entregar la interfaz con el mismo despliegue del backend. La API conserva la autoridad sobre las reglas de negocio. La elección queda para revisión junto con este plan.
+
+**Cierre de cada incremento.** Presentar el diff, los criterios cubiertos y los resultados reales de las pruebas antes de solicitar commit y push. CA-16 aplica desde la primera funcionalidad. La integración requiere un PR hacia `develop`. Las promociones de los commits aprobados a QA y a una versión siguen el flujo definido en el documento de requerimientos.
+
+El [ADR sobre consistencia](adr/002-consistencia-de-movimientos.md) guía las etapas 4 a 6. Antes de implementar movimientos se confirma el mecanismo de bloqueo propuesto. La estrategia detallada de pruebas y versionamiento corresponde al quinto avance documental.
