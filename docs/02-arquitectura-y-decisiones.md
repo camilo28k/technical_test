@@ -97,7 +97,8 @@ ACID se refleja en: **atomicidad**, todos los efectos de la operación se confir
 | --- | --- | --- |
 | Java, Spring Boot y PostgreSQL | Aprobada | Stack acordado; Spring en los adaptadores y configuración, reglas en Java. |
 | JUnit 5, Mockito y pruebas de integración | Aprobada | Probar reglas y servicios desde desarrollo, además de controladores y persistencia. |
-| Docker Compose para backend y PostgreSQL | Aprobada | Ejecución local reproducible; nube opcional. |
+| Docker Compose para frontend, backend y PostgreSQL | Aprobada | Ejecución reproducible en local y en la nube. |
+| AWS EC2 | Aprobada | Despliegue del mismo Compose en una instancia; detalle en [despliegue en AWS EC2](08-despliegue-en-aws-ec2.md). |
 | Spring MVC y Bean Validation | Propuesta | Adaptador REST y validación de formato de entrada. Las reglas de negocio permanecen en el núcleo. |
 | Spring Data JPA | Propuesta | Implementar persistencia y consultas; sus interfaces y anotaciones quedan dentro del adaptador. |
 | Maven y su wrapper | Propuesta | Construcción y ejecución de pruebas con un comando reproducible. |
@@ -105,7 +106,7 @@ ACID se refleja en: **atomicidad**, todos los efectos de la operación se confir
 | Testcontainers con PostgreSQL | Propuesta | Validar restricciones, rollback y concurrencia con el mismo motor de persistencia; requiere Docker al ejecutar estas pruebas. |
 | `BigDecimal`, COP y dos decimales | Aprobada | Representación monetaria acordada, sin cálculos de saldo con coma flotante binaria. |
 
-Las versiones compatibles del JDK, Spring Boot y sus dependencias se fijarán al preparar la configuración, después de aprobar la documentación. El frontend funcional forma parte del alcance aprobado; su tecnología no modifica los contratos internos aquí definidos y se elegirá en el plan de implementación.
+Las versiones compatibles del JDK, Spring Boot y sus dependencias se fijarán al preparar la configuración, después de aprobar la documentación. El frontend funcional forma parte del alcance aprobado y se construirá con **React, Vite y TypeScript** (decisión aprobada), como aplicación basada en componentes servida por Nginx. Consume únicamente la API REST y no modifica los contratos internos aquí definidos.
 
 ## 6. Validación, errores y principios de diseño
 
