@@ -1,6 +1,6 @@
 # Pruebas y versionamiento Git
 
-Estrategia para revisión. Cada incremento del [plan de implementación](04-plan-de-implementacion.md) entrega la funcionalidad y sus pruebas desde la misma rama hija de `develop`. Los criterios que se citan a continuación están definidos en [requerimientos y reglas](01-requerimientos-y-reglas.md).
+Estrategia para revisión. Cada incremento del [plan de implementación](04-plan-de-implementacion.md) entrega la funcionalidad y sus pruebas desde su rama `feature/*`. Los criterios que se citan a continuación están definidos en [requerimientos y reglas](01-requerimientos-y-reglas.md).
 
 ## Qué probar
 
@@ -9,6 +9,7 @@ Estrategia para revisión. Cada incremento del [plan de implementación](04-plan
 | Dominio y servicios | Edad con reloj fijo de Colombia, combinación tipo/número, transiciones de cuenta, importes, fondos y condiciones de reverso. | JUnit 5 prueba el dominio directamente. En servicios, Mockito sustituye los puertos de salida y permite verificar que un rechazo evita escrituras. |
 | Controladores REST | Solicitud válida, formato inválido, recurso inexistente y conflicto de negocio. | Pruebas de controlador con el puerto de entrada simulado. Comprobar estado HTTP, respuesta y conversión de datos según el contrato. |
 | Integración con PostgreSQL | Migraciones desde una base vacía, claves foráneas, unicidad, precisión monetaria, consultas, rollback y concurrencia. | Ejecutar contra PostgreSQL real en un entorno aislado. Se propone Testcontainers conforme a la [arquitectura](02-arquitectura-y-decisiones.md). |
+| Componentes del frontend | Formularios de cliente, apertura y operaciones; tabla del estado de cuenta; presentación de errores `400`/`409` del [contrato REST](07-contrato-api-rest.md). | Vitest y React Testing Library renderizan cada componente con la API simulada y comprueban lo que ve y hace el usuario, no detalles internos. |
 | Recorrido funcional | Alta de cliente, apertura, consignación, transferencia, reverso y consulta del historial desde el frontend. | Con el backend y PostgreSQL en Compose, registrar datos de prueba, saldos obtenidos y resultado del recorrido (CA-15). |
 
 ## Casos que requieren la base de datos
@@ -26,14 +27,61 @@ Preparar datos independientes por caso y controlar el inicio de operaciones conc
 
 Cada PR de funcionalidad identifica el commit probado, los criterios cubiertos, el comando ejecutado, el entorno y el resultado real. Un fallo incluye el escenario reproducible y su efecto. Si se mide cobertura, se informa la medición para servicios y controladores junto con los comportamientos comprobados. Los cambios solo documentales se validan mediante diff, enlaces, formato y coherencia de las referencias.
 
-## Flujo de ramas y promoción
+## Flujo de ramas
 
-| Destino | Procedimiento | Condición de integración |
-| --- | --- | --- |
-| `develop` | Partir de su referencia remota actualizada. Trabajar en una rama hija y ejecutar pruebas con cada funcionalidad (CA-16). Mostrar diff y mensaje previsto, obtener autorización para commit y push y abrir el PR hacia `develop`. | Presentar evidencias y obtener autorización de merge. |
-| `qa` | Partir de `origin/qa` actualizado. Seleccionar los commits ya integrados en `develop`, incluidas pruebas y dependencias. Aplicar `git cherry-pick -x` en orden en la rama hija. | Repetir pruebas unitarias y de integración, validar aceptación y regresión y adjuntar resultados al PR hacia `qa`. Ante un fallo, detener la promoción y originar la corrección en una rama hija de `develop`. |
-| `main` | Partir de `origin/main` actualizado en `release/...`. Seleccionar los commits de la versión validada en QA, comprobar equivalencias y dependencias y aplicar `git cherry-pick -x` en orden. | Ejecutar las validaciones finales, preparar el PR hacia `main` y obtener autorización para integrar o publicar. |
+Tres ramas permanentes: `develop` (integración), `qa` (validación) y `main` (versiones entregadas). Ninguna recibe commits directos: todo entra por pull request.
 
-**Nombre de la rama hija de QA.** El flujo original solicita `qa/...`. La rama permanente `qa` ya ocupa `refs/heads/qa`, lo que impide crear una referencia hija con ese prefijo. Se propone `qa-promocion/<entrega>` desde `origin/qa`, con PR hacia `qa`. Este ajuste de nombre queda para aprobación antes de la primera promoción.
+```mermaid
+gitGraph
+    commit id: "inicio"
+    branch qa
+    branch develop
+    checkout develop
+    branch feature/clientes
+    commit id: "feat: alta de clientes"
+    commit id: "test: pruebas de clientes"
+    checkout develop
+    merge feature/clientes
+    checkout qa
+    branch qa-promocion/clientes
+    cherry-pick id: "feat: alta de clientes"
+    cherry-pick id: "test: pruebas de clientes"
+    checkout qa
+    merge qa-promocion/clientes
+    checkout main
+    merge qa tag: "v0.1.0"
+```
 
-**Trazabilidad.** En el PR de promoción registrar, por cada cambio, el SHA integrado en origen, su PR y el SHA aplicado en destino. Si hubo squash, usar el commit resultante. Si hubo merge convencional, seleccionar los commits de trabajo necesarios. Contrastar el contenido con destino antes de aplicar para evitar duplicados. Las ramas permanentes reciben cambios mediante sus PR, con autorización de merge. El flujo excluye merges directos entre ramas permanentes y push forzado. Eliminar ramas requiere autorización.
+| Rama | Sale de | PR hacia | Uso |
+| --- | --- | --- | --- |
+| `feature/<tema>` | `develop` | `develop` | Una funcionalidad o etapa del [plan](04-plan-de-implementacion.md) con sus pruebas (CA-16). Ejemplos: `feature/clientes`, `feature/transferencias`. |
+| `docs/<tema>` | `develop` | `develop` | Cambios solo de documentación. |
+| `qa-promocion/<tema>` | `qa` | `qa` | Recibe por cherry-pick los commits ya integrados en `develop` que se van a validar. |
+| `qa` | — | `main` | Una vez validada, se integra en `main` por PR. |
+
+El prefijo `qa/<tema>` no es posible porque la rama `qa` ya ocupa ese nombre en Git; por eso se usa `qa-promocion/<tema>`.
+
+### 1. Desarrollo hacia `develop`
+
+1. Actualizar `develop` y crear `feature/<tema>`.
+2. Implementar la funcionalidad junto con sus pruebas unitarias, de integración y de componentes, y ejecutarlas en la propia rama.
+3. Abrir PR hacia `develop` con los criterios cubiertos y el resultado real de las pruebas. Integrar con merge commit para que los commits de trabajo se conserven y puedan seleccionarse después.
+
+### 2. Promoción a `qa`
+
+1. Actualizar `qa` desde `origin/qa` y crear `qa-promocion/<tema>`.
+2. Identificar en `develop` los commits que se promocionan (incluidas sus pruebas y dependencias) y aplicarlos en orden con `git cherry-pick -x <sha>`. La opción `-x` añade al mensaje el SHA de origen y deja la trazabilidad en el historial. No se seleccionan los merge commits, solo los commits de trabajo.
+3. Ejecutar en esa rama todas las pruebas, la regresión y los criterios de aceptación de lo promocionado.
+4. Abrir PR hacia `qa` con la lista de commits promocionados (SHA en `develop` → SHA en `qa`) y los resultados.
+5. Si una prueba falla, no se corrige en la rama de QA: se detiene la promoción, la corrección se hace en una nueva `feature/*` desde `develop` y luego se promociona con el mismo procedimiento.
+
+### 3. Publicación en `main`
+
+Con `qa` validada, abrir PR de `qa` hacia `main`. Tras el merge se crea el tag de versión semántica (`v0.1.0` por hito, `v1.0.0` para la entrega completa) y esa versión es la que se despliega en [EC2](08-despliegue-en-aws-ec2.md). Como `main` solo recibe desde `qa`, todo lo publicado pasó antes por validación.
+
+### Reglas comunes
+
+- Mensajes con [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/) (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`).
+- Antes de cada cherry-pick, comprobar que el cambio no está ya en `qa` para no duplicarlo.
+- Las ramas temporales se eliminan tras su merge. No se usa `push --force` sobre ramas compartidas.
+- En GitHub, `develop`, `qa` y `main` se protegen para exigir PR y bloquear push forzado y borrado. La rama por defecto es `develop` mientras `main` no tenga la primera versión.
