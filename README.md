@@ -1,10 +1,10 @@
 # Prueba técnica: gestión de clientes y productos financieros
 
-Aplicación para administrar clientes, cuentas y movimientos financieros mediante una API REST. El proyecto utilizará Java, Spring Boot y PostgreSQL con arquitectura hexagonal. El alcance incluye un frontend funcional y Docker Compose para ejecutar el backend y PostgreSQL.
+Aplicación para administrar clientes, cuentas y movimientos financieros mediante una API REST. El proyecto utilizará Java, Spring Boot y PostgreSQL con arquitectura hexagonal. El alcance incluye un frontend en React con Vite y Docker Compose para ejecutar frontend, backend y PostgreSQL, desplegados en una instancia AWS EC2.
 
 ## Estado
 
-Requerimientos, arquitectura, modelo de datos, ADR y plan de implementación integrados en `develop`. Estrategia de pruebas y versionamiento en revisión.
+Los cinco documentos iniciales y los ADR están integrados en `develop`. Las historias de usuario, el contrato de la API REST, la sección DDL/DML y el despliegue en EC2 están en revisión.
 
 ## Documentación
 
@@ -13,6 +13,9 @@ Requerimientos, arquitectura, modelo de datos, ADR y plan de implementación int
 3. [Modelo de datos](docs/03-modelo-de-datos.md).
 4. [Plan de implementación por etapas](docs/04-plan-de-implementacion.md).
 5. [Pruebas y versionamiento Git](docs/05-pruebas-y-versionamiento.md).
+6. [Historias de usuario](docs/06-historias-de-usuario.md).
+7. [Contrato de la API REST](docs/07-contrato-api-rest.md).
+8. [Despliegue en AWS EC2](docs/08-despliegue-en-aws-ec2.md).
 
 Registros de decisiones de arquitectura (ADR):
 

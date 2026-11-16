@@ -59,9 +59,9 @@ El formato válido de correo electrónico y la longitud mínima de dos caractere
 | RNF-01 | Desarrollar al menos un backend en Java con una base de datos relacional y estructuras de persistencia suficientes para los requisitos obligatorios. | PDF, p. 3. PostgreSQL seleccionado en DA-06. |
 | RNF-02 | Organizar el backend con responsabilidades de `entity`, `service`, `controller` y `repository`. | PDF, p. 3. Su correspondencia con puertos y adaptadores se explicará en el documento de arquitectura. |
 | RNF-03 | Implementar pruebas unitarias con JUnit con cobertura de Service y Controller. | PDF, p. 3. No se exige un porcentaje numérico. |
-| RNF-04 | Usar Git y un único repositorio en GitHub; evidenciar avances mediante commits y push y una administración organizada de ramas. | PDF, pp. 1 y 3. Cada commit y push requiere autorización previa del responsable del proyecto. |
+| RNF-04 | Usar Git y un único repositorio en GitHub; evidenciar avances mediante commits y push y una administración organizada de ramas. | PDF, pp. 1 y 3. Flujo develop → qa → main descrito en la sección 8. |
 | RNF-05 | Entregar la prueba dockerizada y explicar arquitectura, patrones utilizados, SOLID, ACID y DML/DDL. | Lista inicial del PDF, p. 1. Las decisiones y evidencias se desarrollarán en avances posteriores. |
-| RNF-06 | El PDF menciona “prueba con componentes”, “Front” y servicios de nube utilizados. | PDF, p. 1. P-07 concreta el alcance aprobado: frontend funcional, pruebas unitarias y de integración, Docker Compose y nube opcional. |
+| RNF-06 | El PDF menciona “prueba con componentes”, “Front” y servicios de nube utilizados. | PDF, p. 1. P-07 concreta el alcance aprobado: frontend React por componentes, pruebas unitarias, de integración y de componentes, Docker Compose y despliegue en AWS EC2 ([doc 08](08-despliegue-en-aws-ec2.md)). |
 
 El PDF no establece metas cuantitativas de rendimiento, disponibilidad o cobertura, ni define autenticación y autorización. No se presentan como compromisos aprobados.
 
@@ -85,8 +85,8 @@ Estos criterios describen resultados observables e incorporan las decisiones apr
 | CA-12 | Se rechaza modificar propietario, tipo o número de cuenta. No se elimina físicamente una cuenta; su cancelación conserva el historial y requiere saldo cero. | P-05, RN-08 |
 | CA-13 | Se rechaza repetir una combinación de tipo y número de identificación y usar un tipo no admitido. El mismo número con un tipo admitido distinto no se rechaza por duplicidad. | P-02 |
 | CA-14 | Los importes se manejan en COP con `BigDecimal` y dos decimales. Abrir una cuenta deja saldo cero; una consignación posterior genera un movimiento independiente. | P-03 |
-| CA-15 | El frontend permite gestionar clientes y cuentas y operar y consultar transacciones conforme a estas reglas. Docker Compose permite ejecutar backend y PostgreSQL; desplegar en nube no es condición de aceptación. | P-07 |
-| CA-16 | Cada funcionalidad incorpora sus pruebas en la rama hija de `develop`: unitarias con JUnit 5 y Mockito e integración cuando corresponda. Se presentan resultados reales antes de solicitar su integración. | RNF-03, P-07, sección 8 |
+| CA-15 | El frontend permite gestionar clientes y cuentas y operar y consultar transacciones conforme a estas reglas. Docker Compose permite ejecutar frontend, backend y PostgreSQL, y la misma configuración queda accesible en una instancia AWS EC2. | P-07 |
+| CA-16 | Cada funcionalidad incorpora sus pruebas en su rama `feature/*`: unitarias con JUnit 5 y Mockito e integración cuando corresponda. Se presentan resultados reales antes de solicitar su integración. | RNF-03, P-07, sección 8 |
 
 ## 7. Resolución aprobada de P-01 a P-07
 
@@ -100,20 +100,12 @@ Todos los puntos de esta sección están **resueltos y aprobados**. Se conservan
 | P-04 | Movimientos inmutables y reversos únicamente totales, vinculados al original y sin reversos duplicados. Los reversos respetan fondos suficientes y estados de cuenta. Transferencias y reversos de transferencias garantizan atomicidad. |
 | P-05 | Las cuentas se consultan y permiten actualizar sus atributos autorizados, incluidos estado y `exentaGmf`; propietario, tipo y número no pueden modificarse. El saldo cambia mediante movimientos financieros. La cancelación sustituye la eliminación física y exige saldo cero. Los estados de cuenta incluyen saldo e historial de movimientos. |
 | P-06 | `exentaGmf` es `false` por defecto y puede actualizarse. Las modificaciones de la cuenta actualizan automáticamente su fecha de modificación. No se calcula ni cobra el impuesto. |
-| P-07 | Frontend funcional para clientes, cuentas y transacciones; pruebas unitarias y de integración; Docker Compose para ejecutar backend y PostgreSQL. Los servicios de nube son opcionales. |
+| P-07 | Frontend funcional basado en componentes (React con Vite) para clientes, cuentas y transacciones; pruebas unitarias, de integración y de componentes; Docker Compose para ejecutar frontend, backend y PostgreSQL; despliegue en una instancia AWS EC2. |
 
 El CRUD genérico de RF-01 se adapta por decisión aprobada: las transacciones exitosas se corrigen mediante reversos y las cuentas se cancelan en lugar de eliminarse físicamente. Estas adaptaciones no son formulaciones literales del PDF; preservan el historial financiero. El requisito original permanece documentado.
 
 ## 8. Condiciones aprobadas de desarrollo y entrega
 
-Las pruebas se desarrollarán junto con cada funcionalidad en la rama hija de `develop`, utilizando JUnit 5 y Mockito para pruebas unitarias y pruebas de integración cuando corresponda. QA volverá a ejecutarlas y añadirá regresión y validación de criterios de aceptación según el cambio. No se difiere la creación de tests a QA.
+Las pruebas se desarrollan junto con cada funcionalidad en su rama `feature/*` creada desde `develop`: JUnit 5 y Mockito para pruebas unitarias, pruebas de integración cuando corresponda y pruebas de componentes en el frontend. Al promocionar a QA se vuelven a ejecutar en la rama `qa-promocion/*`, junto con regresión y criterios de aceptación. No se difiere la creación de tests a QA.
 
-Se conservarán las ramas permanentes `main`, `develop` y `qa`. El flujo aprobado es:
-
-1. Trabajar incrementalmente en una rama hija de `develop`, mostrar cambios y resultados reales, y obtener autorización antes de commit y push. Tras el push autorizado, preparar un PR hacia `develop`; el merge requiere autorización.
-2. Para QA, actualizar `qa` desde `origin/qa`, crear una rama `qa/...` y promocionar los commits aprobados en orden, con sus dependencias y tests, mediante `git cherry-pick -x`. Ejecutar las validaciones y preparar un PR hacia `qa`, sujeto a autorización de merge. Si fallan pruebas, detener la promoción; las correcciones funcionales se originan en una rama hija de `develop`.
-3. Para una versión validada en QA, crear `release/...` desde `main`, promocionar los commits aprobados mediante `git cherry-pick -x`, comprobar dependencias y evitar duplicados, ejecutar validaciones finales y preparar un PR hacia `main`. Integrar o publicar requiere autorización.
-
-No se permiten commits directos en ramas permanentes, merges directos entre ellas, merges automáticos ni `push --force`. Eliminar ramas requiere autorización. Si se usa squash merge, se identificará su commit resultante antes de promocionarlo. Cada cambio de etapa requiere autorización.
-
-Estas condiciones se detallarán en el futuro documento de pruebas y versionamiento. En este avance solo se valida documentación; la implementación y su configuración comenzarán después de aprobar la documentación.
+Ramas permanentes: `develop`, `qa` y `main`. El trabajo entra a `develop` por PR desde `feature/*`; pasa a `qa` mediante una rama `qa-promocion/*` creada desde `qa`, en la que se aplican con `git cherry-pick -x` los commits de `develop`, y luego PR hacia `qa`; finalmente, PR de `qa` hacia `main` con tag de versión. No se permiten commits directos en ramas permanentes ni `push --force`. El detalle está en [pruebas y versionamiento](05-pruebas-y-versionamiento.md).

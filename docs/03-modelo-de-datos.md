@@ -44,3 +44,49 @@ Por ejemplo, con A en 100,00 COP y B en 20,00 COP, una transferencia de 30,00 CO
 Para transferir o reversar, el servicio bloquea las cuentas en orden de identificador, vuelve a comprobar estados y fondos con el bloqueo adquirido y confirma saldos y movimientos juntos. Un retiro o cambio de estado sobre esas cuentas sigue el mismo criterio. Si dos retiros concurrentes solicitan 80,00 COP sobre una cuenta con 100,00 COP, solo uno puede confirmarse.
 
 Para el estado de cuenta se propone leer el saldo y el historial desde la misma instantánea. La consulta debe devolver también cuentas sin movimientos. El historial se ordena por fecha de operación y usa el identificador de movimiento como desempate. Además de los índices de claves primarias y únicas, se proponen índices en `cuenta(cliente_id)` y `movimiento(cuenta_id, operacion_id)` para las consultas por cliente y cuenta.
+
+## DDL y DML
+
+**DDL.** El esquema se crea solo mediante migraciones Flyway versionadas en `src/main/resources/db/migration`, una por etapa del [plan](04-plan-de-implementacion.md): `V1__cliente.sql`, `V2__cuenta.sql` (incluye las secuencias por tipo), `V3__operacion_y_movimiento.sql`. Hibernate se ejecuta con `ddl-auto=validate`: comprueba que las entidades coinciden con el esquema, pero nunca lo modifica. Una migración aplicada no se edita; cualquier cambio se hace con una nueva versión.
+
+Extracto previsto de `V2__cuenta.sql`:
+
+```sql
+CREATE SEQUENCE cuenta_ahorros_seq MAXVALUE 99999999 NO CYCLE;
+CREATE SEQUENCE cuenta_corriente_seq MAXVALUE 99999999 NO CYCLE;
+
+CREATE TABLE cuenta (
+    id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cliente_id         bigint NOT NULL REFERENCES cliente(id) ON DELETE RESTRICT,
+    tipo               varchar(10) NOT NULL CHECK (tipo IN ('AHORROS', 'CORRIENTE')),
+    numero             char(10) NOT NULL UNIQUE,
+    estado             varchar(10) NOT NULL DEFAULT 'ACTIVA'
+                       CHECK (estado IN ('ACTIVA', 'INACTIVA', 'CANCELADA')),
+    saldo              numeric(19,2) NOT NULL DEFAULT 0 CHECK (saldo >= 0),
+    exenta_gmf         boolean NOT NULL DEFAULT false,
+    fecha_creacion     timestamptz NOT NULL DEFAULT now(),
+    fecha_modificacion timestamptz,
+    CONSTRAINT numero_por_tipo CHECK (
+        (tipo = 'AHORROS'   AND numero ~ '^53[0-9]{8}$') OR
+        (tipo = 'CORRIENTE' AND numero ~ '^33[0-9]{8}$')),
+    CONSTRAINT cancelada_sin_saldo CHECK (estado <> 'CANCELADA' OR saldo = 0)
+);
+CREATE INDEX idx_cuenta_cliente ON cuenta(cliente_id);
+```
+
+**DML de la aplicación.** Los adaptadores JPA generan las sentencias, pero las operaciones críticas equivalen a este SQL, ejecutado dentro de una sola transacción (transferencia de 30,00 COP de la cuenta 10 a la 11):
+
+```sql
+BEGIN;
+SELECT id, estado, saldo FROM cuenta WHERE id IN (10, 11) ORDER BY id FOR UPDATE;
+-- el servicio valida estados y fondos con las filas bloqueadas
+UPDATE cuenta SET saldo = saldo - 30.00, fecha_modificacion = now() WHERE id = 10;
+UPDATE cuenta SET saldo = saldo + 30.00, fecha_modificacion = now() WHERE id = 11;
+INSERT INTO operacion (clase, importe, fecha) VALUES ('TRANSFERENCIA', 30.00, now()) RETURNING id;
+INSERT INTO movimiento (operacion_id, cuenta_id, sentido) VALUES (:op, 10, 'DEBITO'), (:op, 11, 'CREDITO');
+COMMIT;  -- cualquier error ejecuta ROLLBACK y no deja efectos parciales
+```
+
+El estado de cuenta se obtiene con un `SELECT` que une `movimiento` y `operacion` filtrado por cuenta y rango de fechas, ordenado por fecha y id. El número de cuenta se genera con `'53' || lpad(nextval('cuenta_ahorros_seq')::text, 8, '0')`.
+
+**Datos de demostración.** Un script repetible `R__datos_demo.sql`, en una ubicación de Flyway que solo se activa con el perfil `demo`, inserta clientes, cuentas y operaciones de ejemplo coherentes (saldos iguales a créditos menos débitos). Se usa en local y en EC2 para que el evaluador encuentre datos al abrir la aplicación; las pruebas de integración no dependen de él.
