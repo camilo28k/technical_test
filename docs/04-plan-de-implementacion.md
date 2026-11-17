@@ -19,4 +19,4 @@ El alcance proviene de los [requerimientos y criterios de aceptación](01-requer
 
 **Cierre de cada incremento.** Cada etapa se integra con un PR hacia `develop` que indica los criterios cubiertos y los resultados reales de las pruebas. CA-16 aplica desde la primera funcionalidad. Después se promociona a `qa` por cherry-pick y de `qa` a `main` según el [flujo de ramas](05-pruebas-y-versionamiento.md).
 
-El [ADR sobre consistencia](adr/002-consistencia-de-movimientos.md) guía las etapas 4 a 6. Antes de implementar movimientos se confirma el mecanismo de bloqueo propuesto. La estrategia detallada de pruebas y versionamiento corresponde al quinto avance documental.
+El [ADR sobre consistencia](adr/002-consistencia-de-movimientos.md) guía las etapas 4 a 6 con el bloqueo pesimista por fila aprobado. La estrategia de pruebas y el flujo de ramas están en [pruebas y versionamiento](05-pruebas-y-versionamiento.md).

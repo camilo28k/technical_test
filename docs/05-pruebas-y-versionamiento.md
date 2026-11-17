@@ -1,6 +1,6 @@
 # Pruebas y versionamiento Git
 
-Estrategia para revisión. Cada incremento del [plan de implementación](04-plan-de-implementacion.md) entrega la funcionalidad y sus pruebas desde su rama `feature/*`. Los criterios que se citan a continuación están definidos en [requerimientos y reglas](01-requerimientos-y-reglas.md).
+Estado: aprobado. Cada incremento del [plan de implementación](04-plan-de-implementacion.md) entrega la funcionalidad y sus pruebas desde su rama `feature/*`. Los criterios que se citan a continuación están definidos en [requerimientos y reglas](01-requerimientos-y-reglas.md).
 
 ## Qué probar
 
@@ -8,7 +8,7 @@ Estrategia para revisión. Cada incremento del [plan de implementación](04-plan
 | --- | --- | --- |
 | Dominio y servicios | Edad con reloj fijo de Colombia, combinación tipo/número, transiciones de cuenta, importes, fondos y condiciones de reverso. | JUnit 5 prueba el dominio directamente. En servicios, Mockito sustituye los puertos de salida y permite verificar que un rechazo evita escrituras. |
 | Controladores REST | Solicitud válida, formato inválido, recurso inexistente y conflicto de negocio. | Pruebas de controlador con el puerto de entrada simulado. Comprobar estado HTTP, respuesta y conversión de datos según el contrato. |
-| Integración con PostgreSQL | Migraciones desde una base vacía, claves foráneas, unicidad, precisión monetaria, consultas, rollback y concurrencia. | Ejecutar contra PostgreSQL real en un entorno aislado. Se propone Testcontainers conforme a la [arquitectura](02-arquitectura-y-decisiones.md). |
+| Integración con PostgreSQL | Migraciones desde una base vacía, claves foráneas, unicidad, precisión monetaria, consultas, rollback y concurrencia. | Ejecutar contra PostgreSQL real en un entorno aislado. Se usa Testcontainers conforme a la [arquitectura](02-arquitectura-y-decisiones.md). |
 | Componentes del frontend | Formularios de cliente, apertura y operaciones; tabla del estado de cuenta; presentación de errores `400`/`409` del [contrato REST](07-contrato-api-rest.md). | Vitest y React Testing Library renderizan cada componente con la API simulada y comprueban lo que ve y hace el usuario, no detalles internos. |
 | Recorrido funcional | Alta de cliente, apertura, consignación, transferencia, reverso y consulta del historial desde el frontend. | Con el backend y PostgreSQL en Compose, registrar datos de prueba, saldos obtenidos y resultado del recorrido (CA-15). |
 
@@ -30,6 +30,11 @@ Cada PR de funcionalidad identifica el commit probado, los criterios cubiertos, 
 ## Flujo de ramas
 
 Tres ramas permanentes: `develop` (integración), `qa` (validación) y `main` (versiones entregadas). Ninguna recibe commits directos: todo entra por pull request.
+
+**Relación con git flow.** El flujo se basa en git flow: ramas permanentes de integración (`develop`) y de versiones publicadas (`main`), ramas temporales por funcionalidad que salen de `develop` y vuelven a ella mediante PR, y versiones identificadas con tags semánticos en `main`. Se adapta en dos puntos de forma deliberada:
+
+1. **Rama permanente `qa`.** Representa el entorno de validación entre integración y entrega, en lugar de validar sobre ramas `release/*` temporales. Así queda siempre visible qué versión está en pruebas, y `main` solo recibe lo que ya pasó por `qa`.
+2. **Promoción selectiva con `git cherry-pick -x`.** En lugar de llevar todo `develop` a una release, se eligen los commits ya integrados y probados que deben validarse. Esto permite promocionar una funcionalidad terminada aunque otra siga en curso en `develop`, y la opción `-x` registra en cada commit el SHA de origen para conservar la trazabilidad.
 
 ```mermaid
 gitGraph

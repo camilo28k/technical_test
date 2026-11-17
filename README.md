@@ -4,7 +4,7 @@ Aplicación para administrar clientes, cuentas y movimientos financieros mediant
 
 ## Estado
 
-Los cinco documentos iniciales y los ADR están integrados en `develop`. Las historias de usuario, el contrato de la API REST, la sección DDL/DML y el despliegue en EC2 están en revisión.
+Documentación aprobada e integrada en `develop`. Siguiente paso: etapa 1 del plan, base ejecutable con Spring Boot, PostgreSQL y Docker Compose.
 
 ## Documentación
 
@@ -21,5 +21,3 @@ Registros de decisiones de arquitectura (ADR):
 
 - [ADR-001 · Separar el dominio mediante puertos y adaptadores](docs/adr/001-puertos-y-adaptadores.md)
 - [ADR-002 · Confirmar saldos y movimientos en una transacción](docs/adr/002-consistencia-de-movimientos.md)
-
-Tras aprobar la documentación, la primera etapa del plan será configurar Spring Boot y PostgreSQL.
