@@ -1,6 +1,6 @@
 # Despliegue en AWS EC2
 
-Propuesta para revisión. Responde al requisito del PDF sobre servicios de nube utilizados. La aplicación se ejecuta en una instancia **Amazon EC2** con el mismo Docker Compose del entorno local, de modo que lo evaluado en local y en la nube es la misma configuración.
+Estado: aprobado. Responde al requisito del PDF sobre servicios de nube utilizados. La aplicación se ejecuta en una instancia **Amazon EC2** con el mismo Docker Compose del entorno local, de modo que lo evaluado en local y en la nube es la misma configuración.
 
 ## Arquitectura
 
@@ -18,7 +18,7 @@ Solo Nginx publica un puerto. El backend y PostgreSQL quedan en la red interna d
 
 ## Recursos de AWS
 
-| Servicio | Configuración propuesta | Motivo |
+| Servicio | Configuración | Motivo |
 | --- | --- | --- |
 | EC2 | `t3.small` (2 GB RAM) con Ubuntu Server 24.04 LTS. | Spring Boot, PostgreSQL y Nginx juntos necesitan más de 1 GB. Una `t2.micro`/`t3.micro` de capa gratuita solo es viable con swap y límites de memoria en la JVM. |
 | EBS | Volumen gp3 de 20 GB. | Sistema, imágenes Docker y el volumen de datos de PostgreSQL. |

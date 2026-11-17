@@ -1,6 +1,6 @@
 # Requerimientos y reglas de negocio
 
-Estado: borrador para revisión. Las decisiones iniciales indicadas como aprobadas fueron acordadas con el responsable del proyecto.
+Estado: aprobado. Las decisiones registradas fueron acordadas con el responsable del proyecto.
 
 ## 1. Objetivo y alcance
 

@@ -1,6 +1,6 @@
 # Contrato de la API REST
 
-Propuesta para revisión. Define rutas, cuerpos y errores que comparten backend y frontend. Las reglas provienen de [requerimientos y reglas](01-requerimientos-y-reglas.md); los nombres de recursos siguen el [modelo de datos](03-modelo-de-datos.md) y las [historias de usuario](06-historias-de-usuario.md).
+Estado: aprobado. Define rutas, cuerpos y errores que comparten backend y frontend. Las reglas provienen de [requerimientos y reglas](01-requerimientos-y-reglas.md); los nombres de recursos siguen el [modelo de datos](03-modelo-de-datos.md) y las [historias de usuario](06-historias-de-usuario.md).
 
 ## 1. Convenciones
 
@@ -206,7 +206,7 @@ En `400 VALIDACION`, `detalles` lista `{ "campo": "correo", "mensaje": "formato 
 
 ## 7. Documentación ejecutable y trazabilidad
 
-Se propone publicar el contrato con springdoc-openapi (`/swagger-ui.html`) para que el evaluador pruebe la API sin el frontend. Las pruebas de controlador (doc 05) verifican estado HTTP, cuerpo y código de error de cada fila de las tablas anteriores.
+El contrato se publica con springdoc-openapi (`/swagger-ui.html`) para que el evaluador pruebe la API sin el frontend. Las pruebas de controlador (doc 05) verifican estado HTTP, cuerpo y código de error de cada fila de las tablas anteriores.
 
 | Historia | Endpoints |
 | --- | --- |
