@@ -1,12 +1,12 @@
 # Arquitectura y decisiones técnicas
 
-Estado: propuesta para revisión. Java, Spring Boot, PostgreSQL, arquitectura hexagonal y el alcance funcional ya están aprobados; las elecciones de implementación de este documento se proponen para aprobación.
+Estado: aprobado. Recoge el stack, la arquitectura hexagonal y las elecciones de implementación acordadas.
 
 Base: [Requerimientos y reglas de negocio](01-requerimientos-y-reglas.md). Este documento define responsabilidades y dependencias; el siguiente avance detallará tablas, relaciones y restricciones. No contiene implementación.
 
 ## 1. Estructura y dirección de dependencias
 
-Se propone un único backend desplegable, organizado por responsabilidades hexagonales y por funcionalidad dentro de ellas: clientes, cuentas y transacciones. Mantener estas operaciones en un proceso y una base de datos permite aplicar una transacción local a cada transferencia y facilita ejecutar la prueba técnica.
+Se construye un único backend desplegable, organizado por responsabilidades hexagonales y por funcionalidad dentro de ellas: clientes, cuentas y transacciones. Mantener estas operaciones en un proceso y una base de datos permite aplicar una transacción local a cada transferencia y facilita ejecutar la prueba técnica.
 
 El dominio contiene las reglas financieras. La aplicación coordina casos de uso y define los puertos que necesita. Los adaptadores traducen HTTP y persistencia hacia esos contratos. Spring configura y conecta las implementaciones.
 
@@ -30,7 +30,7 @@ flowchart LR
 
 Las flechas continuas indican uso; las discontinuas, implementación de contratos. En ejecución, Spring conecta REST con el decorador transaccional de los casos de uso que modifican datos; este delega en el servicio de aplicación. El diagrama representa contratos y responsabilidades, no llamadas directas desde el dominio hacia PostgreSQL.
 
-Reglas de dependencia propuestas:
+Reglas de dependencia:
 
 - `domain` utiliza Java estándar y no importa Spring, JPA, DTO HTTP ni adaptadores.
 - `application` depende de `domain` y de sus propios puertos; no importa controladores ni repositorios Spring Data.
@@ -39,9 +39,9 @@ Reglas de dependencia propuestas:
 
 ## 2. Responsabilidades y correspondencia con el PDF
 
-Los nombres siguientes son una organización propuesta de paquetes, no carpetas de aplicación creadas en este avance.
+Organización de paquetes del backend.
 
-| Ubicación propuesta | Responsabilidad | Correspondencia con RNF-02 |
+| Ubicación | Responsabilidad | Correspondencia con RNF-02 |
 | --- | --- | --- |
 | `domain/model` | Cliente, cuenta, transacción y movimiento; estados y valores monetarios. Preserva invariantes mediante operaciones explícitas. | Modelo de negocio separado de `entity` de persistencia. |
 | `application/service` | Ejecutar casos de uso, consultar puertos, aplicar reglas y coordinar cambios. | `service`. |
@@ -52,7 +52,7 @@ Los nombres siguientes son una organización propuesta de paquetes, no carpetas 
 | `infrastructure/adapter/out/persistence/repository` | Repositorios Spring Data y adaptadores que implementan los puertos de salida. | `repository`. |
 | `infrastructure/config` y `infrastructure/transaction` | Configuración de Spring y decoradores que delimitan las transacciones. | Soporte técnico de las capas. |
 
-Las entidades JPA no se devuelven en la API. Se proponen mapeos explícitos entre DTO, comandos/resultados, dominio y persistencia, limitados a los campos necesarios. El coste de esos mapeos permite cambiar el esquema o el contrato REST sin introducir esos detalles en las reglas financieras.
+Las entidades JPA no se devuelven en la API. Se usan mapeos explícitos entre DTO, comandos/resultados, dominio y persistencia, limitados a los campos necesarios. El coste de esos mapeos permite cambiar el esquema o el contrato REST sin introducir esos detalles en las reglas financieras.
 
 ## 3. Casos de uso, puertos y adaptadores
 
@@ -73,11 +73,11 @@ Se inyectará `java.time.Clock` como dependencia estándar para calcular la fech
 
 ## 4. Operaciones financieras y consistencia
 
-Se propone distinguir una **transacción financiera**, que identifica la operación, de sus **movimientos**, que representan débitos y créditos sobre cuentas. Una transferencia agrupa ambos movimientos; un reverso referencia la operación original completa. Esto permite revertir una transferencia como unidad y mantener el original inmutable (P-04).
+Se distingue una **transacción financiera**, que identifica la operación, de sus **movimientos**, que representan débitos y créditos sobre cuentas. Una transferencia agrupa ambos movimientos; un reverso referencia la operación original completa. Esto permite revertir una transferencia como unidad y mantener el original inmutable (P-04).
 
-El límite transaccional abarcará el caso de uso completo, desde la lectura protegida de las cuentas hasta la actualización de saldos y el registro de movimientos. Se propone un decorador Spring que implemente el puerto de entrada y delegue en el servicio Java; así, `@Transactional` queda fuera del núcleo. Se configurará rollback ante cualquier error que impida completar la operación. La llamada debe atravesar el bean transaccional y la respuesta exitosa solo se emite después del commit. Esta elección usa el mecanismo de proxies documentado por [Spring Framework](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html).
+El límite transaccional abarcará el caso de uso completo, desde la lectura protegida de las cuentas hasta la actualización de saldos y el registro de movimientos. Se usa un decorador Spring que implemente el puerto de entrada y delegue en el servicio Java; así, `@Transactional` queda fuera del núcleo. Se configurará rollback ante cualquier error que impida completar la operación. La llamada debe atravesar el bean transaccional y la respuesta exitosa solo se emite después del commit. Esta elección usa el mecanismo de proxies documentado por [Spring Framework](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html).
 
-Flujo propuesto para una transferencia:
+Flujo de una transferencia:
 
 1. El controlador valida el formato de la solicitud y la convierte a datos del caso de uso.
 2. El decorador inicia la transacción. El adaptador obtiene ambas cuentas con bloqueo de escritura y en orden estable por identificador.
@@ -85,7 +85,7 @@ Flujo propuesto para una transferencia:
 4. Se guardan los saldos, la operación y sus movimientos dentro de la misma transacción.
 5. Si falla una validación o escritura, se revierte la operación completa. Si confirma, se devuelve el resultado al cliente.
 
-Se propone bloqueo pesimista por fila para serializar modificaciones de saldo sobre una misma cuenta. Todas las operaciones que cambien saldo o estado, incluidos reversos y cancelación, deben respetar la misma disciplina. Las actualizaciones de atributos también deben evitar sobrescribir un saldo leído antes de un movimiento concurrente. Los bloqueos se adquieren en un orden común para reducir interbloqueos y se mantienen durante una transacción corta; un conflicto no resuelto provoca rollback y una respuesta controlada. El soporte técnico se basa en [bloqueos de Spring Data JPA](https://docs.spring.io/spring-data/jpa/reference/jpa/locking.html) y [bloqueos por fila de PostgreSQL](https://www.postgresql.org/docs/current/explicit-locking.html).
+Se usa bloqueo pesimista por fila para serializar modificaciones de saldo sobre una misma cuenta. Todas las operaciones que cambien saldo o estado, incluidos reversos y cancelación, deben respetar la misma disciplina. Las actualizaciones de atributos también deben evitar sobrescribir un saldo leído antes de un movimiento concurrente. Los bloqueos se adquieren en un orden común para reducir interbloqueos y se mantienen durante una transacción corta; un conflicto no resuelto provoca rollback y una respuesta controlada. El soporte técnico se basa en [bloqueos de Spring Data JPA](https://docs.spring.io/spring-data/jpa/reference/jpa/locking.html) y [bloqueos por fila de PostgreSQL](https://www.postgresql.org/docs/current/explicit-locking.html).
 
 Para reversos, se comprobará la operación original dentro de la misma transacción y una restricción de unicidad impedirá registrar dos reversos del mismo original. La lectura del estado de cuenta deberá obtener saldo e historial desde una vista consistente de los datos; el detalle se definirá junto con las consultas de persistencia.
 
@@ -99,11 +99,11 @@ ACID se refleja en: **atomicidad**, todos los efectos de la operación se confir
 | JUnit 5, Mockito y pruebas de integración | Aprobada | Probar reglas y servicios desde desarrollo, además de controladores y persistencia. |
 | Docker Compose para frontend, backend y PostgreSQL | Aprobada | Ejecución reproducible en local y en la nube. |
 | AWS EC2 | Aprobada | Despliegue del mismo Compose en una instancia; detalle en [despliegue en AWS EC2](08-despliegue-en-aws-ec2.md). |
-| Spring MVC y Bean Validation | Propuesta | Adaptador REST y validación de formato de entrada. Las reglas de negocio permanecen en el núcleo. |
-| Spring Data JPA | Propuesta | Implementar persistencia y consultas; sus interfaces y anotaciones quedan dentro del adaptador. |
-| Maven y su wrapper | Propuesta | Construcción y ejecución de pruebas con un comando reproducible. |
-| Flyway con migraciones SQL versionadas | Propuesta | Evolución explícita del esquema y evidencia de DDL; los cambios de esquema no dependerán de generación automática de JPA. |
-| Testcontainers con PostgreSQL | Propuesta | Validar restricciones, rollback y concurrencia con el mismo motor de persistencia; requiere Docker al ejecutar estas pruebas. |
+| Spring MVC y Bean Validation | Aprobada | Adaptador REST y validación de formato de entrada. Las reglas de negocio permanecen en el núcleo. |
+| Spring Data JPA | Aprobada | Implementar persistencia y consultas; sus interfaces y anotaciones quedan dentro del adaptador. |
+| Maven y su wrapper | Aprobada | Construcción y ejecución de pruebas con un comando reproducible. |
+| Flyway con migraciones SQL versionadas | Aprobada | Evolución explícita del esquema y evidencia de DDL; los cambios de esquema no dependerán de generación automática de JPA. |
+| Testcontainers con PostgreSQL | Aprobada | Validar restricciones, rollback y concurrencia con el mismo motor de persistencia; requiere Docker al ejecutar estas pruebas. |
 | `BigDecimal`, COP y dos decimales | Aprobada | Representación monetaria acordada, sin cálculos de saldo con coma flotante binaria. |
 
 Las versiones compatibles del JDK, Spring Boot y sus dependencias se fijarán al preparar la configuración, después de aprobar la documentación. El frontend funcional forma parte del alcance aprobado y se construirá con **React, Vite y TypeScript** (decisión aprobada), como aplicación basada en componentes servida por Nginx. Consume únicamente la API REST y no modifica los contratos internos aquí definidos.
@@ -112,7 +112,7 @@ Las versiones compatibles del JDK, Spring Boot y sus dependencias se fijarán al
 
 Los DTO REST validan forma y campos requeridos; el dominio y la aplicación garantizan edad, estados, importes, fondos e inmutabilidad aunque se invoquen sin HTTP. La base de datos refuerza unicidad y relaciones. Esta separación evita depender únicamente de validaciones del frontend.
 
-Se propone una respuesta de error consistente con código estable y mensaje comprensible: formato inválido (`400`), recurso inexistente (`404`) y conflicto con reglas o estado actual (`409`). Un manejador REST traduce errores del núcleo y de infraestructura sin exponer SQL ni trazas. Los contratos concretos se desarrollarán con los casos de uso.
+Se define una respuesta de error consistente con código estable y mensaje comprensible: formato inválido (`400`), recurso inexistente (`404`) y conflicto con reglas o estado actual (`409`). Un manejador REST traduce errores del núcleo y de infraestructura sin exponer SQL ni trazas. Los contratos concretos se desarrollarán con los casos de uso.
 
 Patrones previstos: **puertos y adaptadores** para separar negocio y tecnología, **Repository** para persistencia, **Decorator** para transacciones e **inyección de dependencias** para conectar implementaciones y dobles de prueba. Se usarán donde exista esa responsabilidad, sin añadir patrones por cumplir una lista.
 
