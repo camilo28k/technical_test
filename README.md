@@ -21,3 +21,23 @@ Registros de decisiones de arquitectura (ADR):
 
 - [ADR-001 · Separar el dominio mediante puertos y adaptadores](docs/adr/001-puertos-y-adaptadores.md)
 - [ADR-002 · Confirmar saldos y movimientos en una transacción](docs/adr/002-consistencia-de-movimientos.md)
+
+## Ejecución local
+
+Requisitos: Docker Desktop. Para compilar y probar fuera de Docker, JDK 21.
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+curl http://localhost:8080/actuator/health
+```
+
+Pruebas del backend (usan Testcontainers, Docker debe estar en ejecución):
+
+```bash
+cd backend
+./mvnw test
+```
+
+Stack: Java 21, Spring Boot 4.1, Maven Wrapper, PostgreSQL 16 y Flyway.
+
