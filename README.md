@@ -32,6 +32,8 @@ docker compose up -d --build
 curl http://localhost:8080/actuator/health
 ```
 
+Documentación interactiva de la API (Swagger UI): <http://localhost:8080/swagger-ui/index.html>.
+
 Pruebas del backend (usan Testcontainers, Docker debe estar en ejecución):
 
 ```bash
