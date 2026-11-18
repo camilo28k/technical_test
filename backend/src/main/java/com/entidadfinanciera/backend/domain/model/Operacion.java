@@ -33,6 +33,15 @@ public record Operacion(Long id, ClaseOperacion clase, BigDecimal importe, Offse
 				List.of(movimiento(cuenta, Sentido.DEBITO)));
 	}
 
+	/**
+	 * Transferencia: un débito en el origen y un crédito en el destino por el mismo importe
+	 * (RN-10). Ambas cuentas ya deben tener aplicado el importe.
+	 */
+	public static Operacion transferencia(BigDecimal importe, Cuenta origen, Cuenta destino, Clock reloj) {
+		return new Operacion(null, ClaseOperacion.TRANSFERENCIA, importe, OffsetDateTime.now(reloj), null,
+				List.of(movimiento(origen, Sentido.DEBITO), movimiento(destino, Sentido.CREDITO)));
+	}
+
 	private static Movimiento movimiento(Cuenta cuenta, Sentido sentido) {
 		return new Movimiento(null, cuenta.getId(), cuenta.getNumero(), sentido, cuenta.getSaldo());
 	}

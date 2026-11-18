@@ -19,7 +19,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.entidadfinanciera.backend.application.port.out.CuentaRepositoryPort;
@@ -28,6 +30,7 @@ import com.entidadfinanciera.backend.domain.exception.CuentaNoActivaException;
 import com.entidadfinanciera.backend.domain.exception.CuentaNoEncontradaException;
 import com.entidadfinanciera.backend.domain.exception.DatoInvalidoException;
 import com.entidadfinanciera.backend.domain.exception.FondosInsuficientesException;
+import com.entidadfinanciera.backend.domain.exception.MismaCuentaException;
 import com.entidadfinanciera.backend.domain.model.ClaseOperacion;
 import com.entidadfinanciera.backend.domain.model.Cuenta;
 import com.entidadfinanciera.backend.domain.model.EstadoCuenta;
@@ -130,6 +133,74 @@ class OperacionServiceTest {
 		assertThatThrownBy(() -> servicio.retirar("5399999999", BigDecimal.ONE))
 			.isInstanceOf(CuentaNoEncontradaException.class);
 		verifyNoInteractions(operaciones);
+	}
+
+	private static Cuenta cuenta(Long id, String numero, EstadoCuenta estado, String saldo) {
+		return Cuenta.reconstruir(id, 1L, TipoCuenta.AHORROS, numero, estado, new BigDecimal(saldo), false,
+				OffsetDateTime.now(RELOJ), null);
+	}
+
+	private void cuentasParaTransferir(Cuenta origen, Cuenta destino) {
+		when(cuentas.buscarPorNumero(origen.getNumero())).thenReturn(Optional.of(origen));
+		when(cuentas.buscarPorNumero(destino.getNumero())).thenReturn(Optional.of(destino));
+		when(cuentas.buscarPorIdParaActualizar(origen.getId())).thenReturn(Optional.of(origen));
+		when(cuentas.buscarPorIdParaActualizar(destino.getId())).thenReturn(Optional.of(destino));
+	}
+
+	@Test
+	void transferirDebitaOrigenAcreditaDestinoYRegistraAmbosMovimientos() {
+		cuentasParaTransferir(cuenta(10L, "5300000001", EstadoCuenta.ACTIVA, "100.00"),
+				cuenta(11L, "3300000004", EstadoCuenta.ACTIVA, "20.00"));
+		when(cuentas.guardar(any())).thenAnswer(i -> i.getArgument(0));
+		when(operaciones.registrar(any())).thenAnswer(i -> i.getArgument(0));
+
+		Operacion operacion = servicio.transferir("5300000001", "3300000004", new BigDecimal("30"));
+
+		assertThat(operacion.clase()).isEqualTo(ClaseOperacion.TRANSFERENCIA);
+		assertThat(operacion.movimientos()).extracting(m -> m.numeroCuenta() + ":" + m.sentido() + ":" + m.saldoResultante())
+			.containsExactly("5300000001:DEBITO:70.00", "3300000004:CREDITO:50.00");
+	}
+
+	@Test
+	void transferirBloqueaEnOrdenDeIdentificadorAunqueElOrigenSeaMayor() {
+		cuentasParaTransferir(cuenta(11L, "3300000004", EstadoCuenta.ACTIVA, "100.00"),
+				cuenta(10L, "5300000001", EstadoCuenta.ACTIVA, "0"));
+		when(cuentas.guardar(any())).thenAnswer(i -> i.getArgument(0));
+		when(operaciones.registrar(any())).thenAnswer(i -> i.getArgument(0));
+
+		servicio.transferir("3300000004", "5300000001", BigDecimal.TEN);
+
+		InOrder orden = Mockito.inOrder(cuentas);
+		orden.verify(cuentas).buscarPorIdParaActualizar(10L);
+		orden.verify(cuentas).buscarPorIdParaActualizar(11L);
+	}
+
+	@Test
+	void transferirALaMismaCuentaSeRechazaSinConsultar() {
+		assertThatThrownBy(() -> servicio.transferir("5300000001", " 5300000001 ", BigDecimal.TEN))
+			.isInstanceOf(MismaCuentaException.class);
+		verifyNoInteractions(cuentas, operaciones);
+	}
+
+	@Test
+	void destinoInactivoNoGuardaNingunaCuenta() {
+		cuentasParaTransferir(cuenta(10L, "5300000001", EstadoCuenta.ACTIVA, "100.00"),
+				cuenta(11L, "3300000004", EstadoCuenta.INACTIVA, "0"));
+
+		assertThatThrownBy(() -> servicio.transferir("5300000001", "3300000004", BigDecimal.TEN))
+			.isInstanceOf(CuentaNoActivaException.class);
+		verify(cuentas, never()).guardar(any());
+		verifyNoInteractions(operaciones);
+	}
+
+	@Test
+	void destinoInexistenteNoBloqueaNada() {
+		when(cuentas.buscarPorNumero("5300000001")).thenReturn(Optional.of(cuenta(EstadoCuenta.ACTIVA, "100")));
+		when(cuentas.buscarPorNumero("3399999999")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> servicio.transferir("5300000001", "3399999999", BigDecimal.TEN))
+			.isInstanceOf(CuentaNoEncontradaException.class);
+		verify(cuentas, never()).buscarPorIdParaActualizar(any());
 	}
 
 }
