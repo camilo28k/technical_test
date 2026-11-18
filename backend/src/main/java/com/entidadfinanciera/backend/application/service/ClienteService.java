@@ -7,6 +7,8 @@ import com.entidadfinanciera.backend.application.Pagina;
 import com.entidadfinanciera.backend.application.Paginacion;
 import com.entidadfinanciera.backend.application.port.in.GestionarClientesUseCase;
 import com.entidadfinanciera.backend.application.port.out.ClienteRepositoryPort;
+import com.entidadfinanciera.backend.application.port.out.CuentaRepositoryPort;
+import com.entidadfinanciera.backend.domain.exception.ClienteConProductosException;
 import com.entidadfinanciera.backend.domain.exception.ClienteNoEncontradoException;
 import com.entidadfinanciera.backend.domain.exception.IdentificacionDuplicadaException;
 import com.entidadfinanciera.backend.domain.model.Cliente;
@@ -15,17 +17,16 @@ import com.entidadfinanciera.backend.domain.model.DatosCliente;
 /**
  * Casos de uso de clientes. Java puro: sin Spring ni JPA; la transacción la aporta un
  * decorador de infraestructura (ADR-001, documento 02).
- *
- * <p>La regla que impide eliminar clientes con productos (RN-02) se completa en la etapa 3,
- * cuando existan las cuentas.
  */
 public class ClienteService implements GestionarClientesUseCase {
 
 	private final ClienteRepositoryPort clientes;
+	private final CuentaRepositoryPort cuentas;
 	private final Clock reloj;
 
-	public ClienteService(ClienteRepositoryPort clientes, Clock reloj) {
+	public ClienteService(ClienteRepositoryPort clientes, CuentaRepositoryPort cuentas, Clock reloj) {
 		this.clientes = clientes;
+		this.cuentas = cuentas;
 		this.reloj = reloj;
 	}
 
@@ -61,6 +62,10 @@ public class ClienteService implements GestionarClientesUseCase {
 	@Override
 	public void eliminar(Long id) {
 		consultar(id);
+		// RN-02: cualquier cuenta, incluso cancelada, protege al propietario.
+		if (cuentas.existePorCliente(id)) {
+			throw new ClienteConProductosException(id);
+		}
 		clientes.eliminar(id);
 	}
 
