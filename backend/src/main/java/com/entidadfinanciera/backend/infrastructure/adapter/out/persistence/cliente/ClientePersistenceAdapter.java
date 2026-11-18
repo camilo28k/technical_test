@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.entidadfinanciera.backend.application.Pagina;
 import com.entidadfinanciera.backend.application.Paginacion;
 import com.entidadfinanciera.backend.application.port.out.ClienteRepositoryPort;
+import com.entidadfinanciera.backend.domain.exception.ClienteConProductosException;
 import com.entidadfinanciera.backend.domain.exception.ClienteMenorDeEdadException;
 import com.entidadfinanciera.backend.domain.exception.IdentificacionDuplicadaException;
 import com.entidadfinanciera.backend.domain.model.Cliente;
@@ -65,8 +66,17 @@ class ClientePersistenceAdapter implements ClienteRepositoryPort {
 
 	@Override
 	public void eliminar(Long id) {
-		repositorio.deleteById(id);
-		repositorio.flush();
+		try {
+			repositorio.deleteById(id);
+			repositorio.flush();
+		}
+		catch (DataIntegrityViolationException ex) {
+			// Red de seguridad de RN-02 ante una cuenta abierta en paralelo.
+			if (String.valueOf(ex.getMostSpecificCause().getMessage()).contains("fk_cuenta_cliente")) {
+				throw new ClienteConProductosException(id);
+			}
+			throw ex;
+		}
 	}
 
 	private static RuntimeException traducir(DataIntegrityViolationException ex, Cliente cliente) {

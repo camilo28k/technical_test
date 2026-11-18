@@ -24,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.entidadfinanciera.backend.application.Pagina;
 import com.entidadfinanciera.backend.application.Paginacion;
 import com.entidadfinanciera.backend.application.port.out.ClienteRepositoryPort;
+import com.entidadfinanciera.backend.application.port.out.CuentaRepositoryPort;
+import com.entidadfinanciera.backend.domain.exception.ClienteConProductosException;
 import com.entidadfinanciera.backend.domain.exception.ClienteMenorDeEdadException;
 import com.entidadfinanciera.backend.domain.exception.ClienteNoEncontradoException;
 import com.entidadfinanciera.backend.domain.exception.IdentificacionDuplicadaException;
@@ -43,11 +45,14 @@ class ClienteServiceTest {
 	@Mock
 	private ClienteRepositoryPort repositorio;
 
+	@Mock
+	private CuentaRepositoryPort cuentas;
+
 	private ClienteService servicio;
 
 	@BeforeEach
 	void preparar() {
-		servicio = new ClienteService(repositorio, RELOJ);
+		servicio = new ClienteService(repositorio, cuentas, RELOJ);
 	}
 
 	private static Cliente persistido(Long id, DatosCliente datos) {
@@ -137,6 +142,15 @@ class ClienteServiceTest {
 		when(repositorio.listar(Optional.empty(), paginacion)).thenReturn(new Pagina<>(List.of(), 0, 20, 0, 0));
 
 		assertThat(servicio.listar(Optional.of("  "), paginacion).totalElementos()).isZero();
+	}
+
+	@Test
+	void noEliminaClienteConCuentasAunqueEstenCanceladas() {
+		when(repositorio.buscarPorId(4L)).thenReturn(Optional.of(persistido(4L, DATOS)));
+		when(cuentas.existePorCliente(4L)).thenReturn(true);
+
+		assertThatThrownBy(() -> servicio.eliminar(4L)).isInstanceOf(ClienteConProductosException.class);
+		verify(repositorio, never()).eliminar(any());
 	}
 
 }
