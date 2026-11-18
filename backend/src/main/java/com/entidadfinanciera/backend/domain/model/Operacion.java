@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import com.entidadfinanciera.backend.domain.exception.DatoInvalidoException;
@@ -40,6 +41,22 @@ public record Operacion(Long id, ClaseOperacion clase, BigDecimal importe, Offse
 	public static Operacion transferencia(BigDecimal importe, Cuenta origen, Cuenta destino, Clock reloj) {
 		return new Operacion(null, ClaseOperacion.TRANSFERENCIA, importe, OffsetDateTime.now(reloj), null,
 				List.of(movimiento(origen, Sentido.DEBITO), movimiento(destino, Sentido.CREDITO)));
+	}
+
+	/**
+	 * Reverso total (DA-01, P-04): las mismas cuentas y el mismo importe que el original, con
+	 * sentidos opuestos. Las cuentas, indexadas por id, ya deben tener aplicado el efecto.
+	 */
+	public static Operacion reverso(Operacion original, Map<Long, Cuenta> cuentas, Clock reloj) {
+		if (original.clase() == ClaseOperacion.REVERSO) {
+			throw new IllegalArgumentException("Un reverso no puede reversarse");
+		}
+		List<Movimiento> opuestos = original.movimientos()
+			.stream()
+			.map(m -> movimiento(cuentas.get(m.cuentaId()), m.sentido().opuesto()))
+			.toList();
+		return new Operacion(null, ClaseOperacion.REVERSO, original.importe(), OffsetDateTime.now(reloj),
+				original.id(), opuestos);
 	}
 
 	private static Movimiento movimiento(Cuenta cuenta, Sentido sentido) {

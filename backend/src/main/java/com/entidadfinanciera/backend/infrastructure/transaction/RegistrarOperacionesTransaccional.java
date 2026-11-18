@@ -37,4 +37,10 @@ public class RegistrarOperacionesTransaccional implements RegistrarOperacionesUs
 		return delegado.transferir(numeroCuentaOrigen, numeroCuentaDestino, importe);
 	}
 
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public Operacion reversar(Long operacionId) {
+		return delegado.reversar(operacionId);
+	}
+
 }

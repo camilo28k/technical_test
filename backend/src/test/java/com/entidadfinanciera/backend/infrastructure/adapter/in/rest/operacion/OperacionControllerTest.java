@@ -32,6 +32,9 @@ import com.entidadfinanciera.backend.domain.exception.CuentaNoActivaException;
 import com.entidadfinanciera.backend.domain.exception.CuentaNoEncontradaException;
 import com.entidadfinanciera.backend.domain.exception.FondosInsuficientesException;
 import com.entidadfinanciera.backend.domain.exception.MismaCuentaException;
+import com.entidadfinanciera.backend.domain.exception.OperacionNoEncontradaException;
+import com.entidadfinanciera.backend.domain.exception.OperacionYaReversadaException;
+import com.entidadfinanciera.backend.domain.exception.ReversoNoReversableException;
 import com.entidadfinanciera.backend.domain.model.ClaseOperacion;
 import com.entidadfinanciera.backend.domain.model.Movimiento;
 import com.entidadfinanciera.backend.domain.model.Operacion;
@@ -171,6 +174,36 @@ class OperacionControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.detalles[0].campo").value("numeroCuentaDestino"));
 		verify(operaciones, never()).transferir(any(), any(), any());
+	}
+
+	@Test
+	void reversarDevuelve201VinculadoAlOriginal() throws Exception {
+		when(operaciones.reversar(501L)).thenReturn(new Operacion(600L, ClaseOperacion.REVERSO,
+				new BigDecimal("150000.00"), OffsetDateTime.parse("2026-11-16T16:00:00Z"), 501L,
+				List.of(new Movimiento(950L, 10L, "5300000001", Sentido.DEBITO, new BigDecimal("0.00")))));
+
+		mvc.perform(post("/api/v1/operaciones/501/reverso"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.clase").value("REVERSO"))
+			.andExpect(jsonPath("$.operacionOriginalId").value(501))
+			.andExpect(jsonPath("$.movimientos[0].sentido").value("DEBITO"));
+	}
+
+	@Test
+	void reversarDevuelveLosCodigosDelContrato() throws Exception {
+		when(operaciones.reversar(1L)).thenThrow(new OperacionNoEncontradaException(1L));
+		when(operaciones.reversar(2L)).thenThrow(new OperacionYaReversadaException(2L));
+		when(operaciones.reversar(3L)).thenThrow(new ReversoNoReversableException(3L));
+
+		mvc.perform(post("/api/v1/operaciones/1/reverso"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.codigo").value("OPERACION_NO_ENCONTRADA"));
+		mvc.perform(post("/api/v1/operaciones/2/reverso"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.codigo").value("OPERACION_YA_REVERSADA"));
+		mvc.perform(post("/api/v1/operaciones/3/reverso"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.codigo").value("REVERSO_NO_REVERSABLE"));
 	}
 
 }
