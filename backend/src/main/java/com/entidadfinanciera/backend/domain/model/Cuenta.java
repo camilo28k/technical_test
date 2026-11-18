@@ -8,11 +8,13 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import com.entidadfinanciera.backend.domain.exception.CuentaCanceladaException;
+import com.entidadfinanciera.backend.domain.exception.CuentaNoActivaException;
+import com.entidadfinanciera.backend.domain.exception.FondosInsuficientesException;
 import com.entidadfinanciera.backend.domain.exception.SaldoDistintoDeCeroException;
 
 /**
  * Cuenta de ahorro o corriente. Propietario, tipo y número no cambian después de la apertura
- * (P-05); el saldo solo cambia mediante movimientos (etapa 4).
+ * (P-05); el saldo solo cambia mediante movimientos.
  */
 public class Cuenta {
 
@@ -85,6 +87,29 @@ public class Cuenta {
 		if (exentaGmf != exenta) {
 			exentaGmf = exenta;
 			fechaModificacion = OffsetDateTime.now(reloj);
+		}
+	}
+
+	/** Suma el importe al saldo (RN-10). Exige cuenta activa (DA-03). */
+	public void acreditar(BigDecimal importe, Clock reloj) {
+		exigirActiva();
+		saldo = saldo.add(importe);
+		fechaModificacion = OffsetDateTime.now(reloj);
+	}
+
+	/** Resta el importe del saldo (RN-10). Exige cuenta activa y fondos suficientes (DA-02, DA-03). */
+	public void debitar(BigDecimal importe, Clock reloj) {
+		exigirActiva();
+		if (saldo.compareTo(importe) < 0) {
+			throw new FondosInsuficientesException(numero, importe);
+		}
+		saldo = saldo.subtract(importe);
+		fechaModificacion = OffsetDateTime.now(reloj);
+	}
+
+	private void exigirActiva() {
+		if (estado != EstadoCuenta.ACTIVA) {
+			throw new CuentaNoActivaException(numero, estado.name());
 		}
 	}
 

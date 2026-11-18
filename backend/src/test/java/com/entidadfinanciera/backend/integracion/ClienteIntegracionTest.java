@@ -40,6 +40,8 @@ class ClienteIntegracionTest {
 
 	@BeforeEach
 	void limpiar() {
+		jdbc.execute("DELETE FROM movimiento");
+		jdbc.execute("DELETE FROM operacion");
 		jdbc.execute("DELETE FROM cuenta");
 		jdbc.execute("DELETE FROM cliente");
 	}

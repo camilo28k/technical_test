@@ -63,6 +63,11 @@ class CuentaPersistenceAdapter implements CuentaRepositoryPort {
 	}
 
 	@Override
+	public Optional<Cuenta> buscarPorNumeroParaActualizar(String numero) {
+		return repositorio.buscarPorNumeroParaActualizar(numero).map(CuentaPersistenceAdapter::aDominio);
+	}
+
+	@Override
 	public Pagina<Cuenta> listar(Optional<Long> clienteId, Optional<EstadoCuenta> estado, Paginacion paginacion) {
 		Specification<CuentaEntity> filtro = Specification.allOf(
 				clienteId.<Specification<CuentaEntity>>map(id -> (r, q, cb) -> cb.equal(r.get("clienteId"), id))
