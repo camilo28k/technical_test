@@ -9,6 +9,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+
 import com.entidadfinanciera.backend.application.Pagina;
 import com.entidadfinanciera.backend.application.Paginacion;
 import com.entidadfinanciera.backend.application.port.out.CuentaRepositoryPort;
@@ -21,9 +24,11 @@ import com.entidadfinanciera.backend.domain.model.TipoCuenta;
 class CuentaPersistenceAdapter implements CuentaRepositoryPort {
 
 	private final CuentaJpaRepository repositorio;
+	private final EntityManager entityManager;
 
-	CuentaPersistenceAdapter(CuentaJpaRepository repositorio) {
+	CuentaPersistenceAdapter(CuentaJpaRepository repositorio, EntityManager entityManager) {
 		this.repositorio = repositorio;
+		this.entityManager = entityManager;
 	}
 
 	@Override
@@ -54,7 +59,7 @@ class CuentaPersistenceAdapter implements CuentaRepositoryPort {
 
 	@Override
 	public Optional<Cuenta> buscarPorIdParaActualizar(Long id) {
-		return repositorio.buscarParaActualizar(id).map(CuentaPersistenceAdapter::aDominio);
+		return repositorio.findById(id).map(this::bloquear);
 	}
 
 	@Override
@@ -64,7 +69,7 @@ class CuentaPersistenceAdapter implements CuentaRepositoryPort {
 
 	@Override
 	public Optional<Cuenta> buscarPorNumeroParaActualizar(String numero) {
-		return repositorio.buscarPorNumeroParaActualizar(numero).map(CuentaPersistenceAdapter::aDominio);
+		return repositorio.findByNumero(numero).map(this::bloquear);
 	}
 
 	@Override
@@ -87,6 +92,17 @@ class CuentaPersistenceAdapter implements CuentaRepositoryPort {
 	@Override
 	public boolean existePorCliente(Long clienteId) {
 		return repositorio.existsByClienteId(clienteId);
+	}
+
+	/**
+	 * {@code SELECT ... FOR UPDATE} que además recarga la fila. Si la entidad ya estaba en el
+	 * contexto de persistencia (por ejemplo, leída sin bloqueo para conocer su id), una consulta
+	 * con bloqueo devolvería la instancia en caché con un saldo obsoleto y se perdería una
+	 * actualización concurrente; {@code refresh} garantiza leer el valor confirmado tras el bloqueo.
+	 */
+	private Cuenta bloquear(CuentaEntity entidad) {
+		entityManager.refresh(entidad, LockModeType.PESSIMISTIC_WRITE);
+		return aDominio(entidad);
 	}
 
 	private static Cuenta aDominio(CuentaEntity e) {

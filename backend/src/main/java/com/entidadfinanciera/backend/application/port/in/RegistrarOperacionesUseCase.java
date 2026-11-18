@@ -11,4 +11,6 @@ public interface RegistrarOperacionesUseCase {
 
 	Operacion retirar(String numeroCuenta, BigDecimal importe);
 
+	Operacion transferir(String numeroCuentaOrigen, String numeroCuentaDestino, BigDecimal importe);
+
 }
