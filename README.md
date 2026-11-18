@@ -4,7 +4,7 @@ Aplicación para administrar clientes, cuentas y movimientos financieros mediant
 
 ## Estado
 
-Documentación aprobada e integrada en `develop`. Siguiente paso: etapa 1 del plan, base ejecutable con Spring Boot, PostgreSQL y Docker Compose.
+Backend (etapas 1 a 7) y frontend (etapa 8) implementados. Pendiente: despliegue en AWS EC2.
 
 ## Documentación
 
@@ -21,3 +21,36 @@ Registros de decisiones de arquitectura (ADR):
 
 - [ADR-001 · Separar el dominio mediante puertos y adaptadores](docs/adr/001-puertos-y-adaptadores.md)
 - [ADR-002 · Confirmar saldos y movimientos en una transacción](docs/adr/002-consistencia-de-movimientos.md)
+
+## Ejecución local
+
+Requisitos: Docker Desktop. Para compilar y probar fuera de Docker, JDK 21 y Node.js 22.
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+curl http://localhost/actuator/health
+```
+
+- Aplicación web: <http://localhost> (puerto configurable con `FRONTEND_PORT`).
+- Swagger UI: <http://localhost/swagger-ui/index.html>.
+
+Solo Nginx publica un puerto: sirve el frontend y redirige `/api`, la salud y Swagger al backend, que queda en la red interna de Compose junto con PostgreSQL.
+
+Pruebas del backend (usan Testcontainers, Docker debe estar en ejecución):
+
+```bash
+cd backend
+./mvnw test
+```
+
+Frontend en desarrollo (el proxy de Vite envía `/api` a `http://localhost:8080`, o a `BACKEND_URL`) y sus pruebas con Vitest:
+
+```bash
+cd frontend
+npm install
+npm run dev
+npm test
+```
+
+Stack: Java 21, Spring Boot 4.1, Maven Wrapper, PostgreSQL 16, Flyway, React 18, Vite 6, TypeScript y Nginx.
