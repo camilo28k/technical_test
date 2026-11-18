@@ -7,7 +7,11 @@ import org.springframework.context.annotation.Configuration;
 
 import com.entidadfinanciera.backend.application.port.in.GestionarClientesUseCase;
 import com.entidadfinanciera.backend.application.port.in.GestionarCuentasUseCase;
+import com.entidadfinanciera.backend.application.port.in.ConsultarOperacionesUseCase;
 import com.entidadfinanciera.backend.application.port.in.RegistrarOperacionesUseCase;
+import com.entidadfinanciera.backend.application.port.out.HistorialQueryPort;
+import com.entidadfinanciera.backend.application.service.ConsultaService;
+import com.entidadfinanciera.backend.infrastructure.transaction.ConsultarOperacionesTransaccional;
 import com.entidadfinanciera.backend.application.port.out.ClienteRepositoryPort;
 import com.entidadfinanciera.backend.application.port.out.OperacionRepositoryPort;
 import com.entidadfinanciera.backend.application.service.OperacionService;
@@ -38,6 +42,13 @@ public class CasosDeUsoConfig {
 	RegistrarOperacionesUseCase registrarOperaciones(CuentaRepositoryPort cuentas,
 			OperacionRepositoryPort operaciones, Clock reloj) {
 		return new RegistrarOperacionesTransaccional(new OperacionService(cuentas, operaciones, reloj));
+	}
+
+	@Bean
+	ConsultarOperacionesUseCase consultarOperaciones(CuentaRepositoryPort cuentas, ClienteRepositoryPort clientes,
+			OperacionRepositoryPort operaciones, HistorialQueryPort historial, Clock reloj) {
+		return new ConsultarOperacionesTransaccional(
+				new ConsultaService(cuentas, clientes, operaciones, historial, reloj));
 	}
 
 }

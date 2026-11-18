@@ -20,7 +20,7 @@ public record OperacionResponse(Long id, String clase, String importe, OffsetDat
 				o.movimientos()
 					.stream()
 					.map(m -> new MovimientoResponse(m.id(), m.numeroCuenta(), m.sentido().name(),
-							m.saldoResultante().toPlainString()))
+							m.saldoResultante() == null ? null : m.saldoResultante().toPlainString()))
 					.toList());
 	}
 
