@@ -31,6 +31,10 @@ import com.entidadfinanciera.backend.domain.exception.CuentaNoEncontradaExceptio
 import com.entidadfinanciera.backend.domain.exception.DatoInvalidoException;
 import com.entidadfinanciera.backend.domain.exception.FondosInsuficientesException;
 import com.entidadfinanciera.backend.domain.exception.MismaCuentaException;
+import com.entidadfinanciera.backend.domain.exception.OperacionNoEncontradaException;
+import com.entidadfinanciera.backend.domain.exception.OperacionYaReversadaException;
+import com.entidadfinanciera.backend.domain.exception.ReversoNoReversableException;
+import com.entidadfinanciera.backend.domain.model.Movimiento;
 import com.entidadfinanciera.backend.domain.model.ClaseOperacion;
 import com.entidadfinanciera.backend.domain.model.Cuenta;
 import com.entidadfinanciera.backend.domain.model.EstadoCuenta;
@@ -201,6 +205,73 @@ class OperacionServiceTest {
 		assertThatThrownBy(() -> servicio.transferir("5300000001", "3399999999", BigDecimal.TEN))
 			.isInstanceOf(CuentaNoEncontradaException.class);
 		verify(cuentas, never()).buscarPorIdParaActualizar(any());
+	}
+
+	private static Operacion transferenciaOriginal() {
+		return new Operacion(501L, ClaseOperacion.TRANSFERENCIA, new BigDecimal("30.00"), OffsetDateTime.now(RELOJ),
+				null, List.of(new Movimiento(1L, 11L, "3300000004", Sentido.DEBITO, null),
+						new Movimiento(2L, 10L, "5300000001", Sentido.CREDITO, null)));
+	}
+
+	@Test
+	void reversarTransferenciaCompensaAmbasCuentasBloqueandoEnOrden() {
+		when(operaciones.buscarPorId(501L)).thenReturn(Optional.of(transferenciaOriginal()));
+		when(operaciones.existeReversoDe(501L)).thenReturn(false);
+		when(cuentas.buscarPorIdParaActualizar(10L))
+			.thenReturn(Optional.of(cuenta(10L, "5300000001", EstadoCuenta.ACTIVA, "30.00")));
+		when(cuentas.buscarPorIdParaActualizar(11L))
+			.thenReturn(Optional.of(cuenta(11L, "3300000004", EstadoCuenta.ACTIVA, "70.00")));
+		when(cuentas.guardar(any())).thenAnswer(i -> i.getArgument(0));
+		when(operaciones.registrar(any())).thenAnswer(i -> i.getArgument(0));
+
+		Operacion reverso = servicio.reversar(501L);
+
+		assertThat(reverso.clase()).isEqualTo(ClaseOperacion.REVERSO);
+		assertThat(reverso.originalId()).isEqualTo(501L);
+		assertThat(reverso.movimientos()).extracting(m -> m.numeroCuenta() + ":" + m.sentido() + ":" + m.saldoResultante())
+			.containsExactly("3300000004:CREDITO:100.00", "5300000001:DEBITO:0.00");
+		InOrder orden = Mockito.inOrder(cuentas, operaciones);
+		orden.verify(cuentas).buscarPorIdParaActualizar(10L);
+		orden.verify(cuentas).buscarPorIdParaActualizar(11L);
+		orden.verify(operaciones).existeReversoDe(501L);
+	}
+
+	@Test
+	void reversoSinFondosEnLaCuentaAcreditadaNoGuardaNada() {
+		when(operaciones.buscarPorId(501L)).thenReturn(Optional.of(transferenciaOriginal()));
+		when(cuentas.buscarPorIdParaActualizar(10L))
+			.thenReturn(Optional.of(cuenta(10L, "5300000001", EstadoCuenta.ACTIVA, "29.99")));
+		when(cuentas.buscarPorIdParaActualizar(11L))
+			.thenReturn(Optional.of(cuenta(11L, "3300000004", EstadoCuenta.ACTIVA, "70.00")));
+
+		assertThatThrownBy(() -> servicio.reversar(501L)).isInstanceOf(FondosInsuficientesException.class);
+		verify(cuentas, never()).guardar(any());
+		verify(operaciones, never()).registrar(any());
+	}
+
+	@Test
+	void unaOperacionYaReversadaSeRechazaSinBloquear() {
+		when(operaciones.buscarPorId(501L)).thenReturn(Optional.of(transferenciaOriginal()));
+		when(operaciones.existeReversoDe(501L)).thenReturn(true);
+
+		assertThatThrownBy(() -> servicio.reversar(501L)).isInstanceOf(OperacionYaReversadaException.class);
+		verifyNoInteractions(cuentas);
+	}
+
+	@Test
+	void unReversoNoPuedeReversarse() {
+		when(operaciones.buscarPorId(600L)).thenReturn(Optional.of(new Operacion(600L, ClaseOperacion.REVERSO,
+				BigDecimal.TEN, OffsetDateTime.now(RELOJ), 501L, List.of())));
+
+		assertThatThrownBy(() -> servicio.reversar(600L)).isInstanceOf(ReversoNoReversableException.class);
+		verifyNoInteractions(cuentas);
+	}
+
+	@Test
+	void reversarOperacionInexistente() {
+		when(operaciones.buscarPorId(9L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> servicio.reversar(9L)).isInstanceOf(OperacionNoEncontradaException.class);
 	}
 
 }

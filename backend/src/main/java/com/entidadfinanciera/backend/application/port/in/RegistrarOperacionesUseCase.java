@@ -11,6 +11,9 @@ public interface RegistrarOperacionesUseCase {
 
 	Operacion retirar(String numeroCuenta, BigDecimal importe);
 
+	/** Reverso total de una operación (P-04). */
+	Operacion reversar(Long operacionId);
+
 	Operacion transferir(String numeroCuentaOrigen, String numeroCuentaDestino, BigDecimal importe);
 
 }

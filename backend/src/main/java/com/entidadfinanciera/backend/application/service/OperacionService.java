@@ -2,12 +2,20 @@ package com.entidadfinanciera.backend.application.service;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import com.entidadfinanciera.backend.application.port.in.RegistrarOperacionesUseCase;
 import com.entidadfinanciera.backend.application.port.out.CuentaRepositoryPort;
 import com.entidadfinanciera.backend.application.port.out.OperacionRepositoryPort;
 import com.entidadfinanciera.backend.domain.exception.CuentaNoEncontradaException;
 import com.entidadfinanciera.backend.domain.exception.MismaCuentaException;
+import com.entidadfinanciera.backend.domain.exception.OperacionNoEncontradaException;
+import com.entidadfinanciera.backend.domain.exception.OperacionYaReversadaException;
+import com.entidadfinanciera.backend.domain.exception.ReversoNoReversableException;
+import com.entidadfinanciera.backend.domain.model.ClaseOperacion;
+import com.entidadfinanciera.backend.domain.model.Movimiento;
+import com.entidadfinanciera.backend.domain.model.Sentido;
 import com.entidadfinanciera.backend.domain.model.Cuenta;
 import com.entidadfinanciera.backend.domain.model.Operacion;
 
@@ -70,6 +78,48 @@ public class OperacionService implements RegistrarOperacionesUseCase {
 		Cuenta origenGuardado = cuentas.guardar(origen);
 		Cuenta destinoGuardado = cuentas.guardar(destino);
 		return operaciones.registrar(Operacion.transferencia(valor, origenGuardado, destinoGuardado, reloj));
+	}
+
+	/**
+	 * Reverso total: bloquea las cuentas del original en orden de id y, ya con los bloqueos,
+	 * vuelve a comprobar que no exista otro reverso. Dos solicitudes simultáneas sobre el mismo
+	 * original se serializan en esos bloqueos; la segunda ve el reverso confirmado y se rechaza.
+	 * La restricción única en base de datos es la última defensa.
+	 */
+	@Override
+	public Operacion reversar(Long operacionId) {
+		Operacion original = operaciones.buscarPorId(operacionId)
+			.orElseThrow(() -> new OperacionNoEncontradaException(operacionId));
+		if (original.clase() == ClaseOperacion.REVERSO) {
+			throw new ReversoNoReversableException(operacionId);
+		}
+		exigirSinReverso(operacionId);
+
+		Map<Long, Cuenta> bloqueadas = new LinkedHashMap<>();
+		original.movimientos()
+			.stream()
+			.map(Movimiento::cuentaId)
+			.sorted()
+			.forEach(id -> bloqueadas.put(id, bloquearPorId(id)));
+		exigirSinReverso(operacionId);
+
+		for (Movimiento m : original.movimientos()) {
+			Cuenta cuenta = bloqueadas.get(m.cuentaId());
+			if (m.sentido() == Sentido.CREDITO) {
+				cuenta.debitar(original.importe(), reloj);
+			}
+			else {
+				cuenta.acreditar(original.importe(), reloj);
+			}
+		}
+		bloqueadas.replaceAll((id, cuenta) -> cuentas.guardar(cuenta));
+		return operaciones.registrar(Operacion.reverso(original, bloqueadas, reloj));
+	}
+
+	private void exigirSinReverso(Long operacionId) {
+		if (operaciones.existeReversoDe(operacionId)) {
+			throw new OperacionYaReversadaException(operacionId);
+		}
 	}
 
 	private Cuenta bloquear(String numero) {
