@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -79,6 +80,14 @@ public class ManejadorDeErrores {
 	@ExceptionHandler(ReglaDeNegocioException.class)
 	ResponseEntity<ErrorResponse> reglaDeNegocio(ReglaDeNegocioException ex, HttpServletRequest solicitud) {
 		return responder(HttpStatus.CONFLICT, ex.getCodigo(), ex.getMessage(), solicitud, List.of());
+	}
+
+	@ExceptionHandler(PessimisticLockingFailureException.class)
+	ResponseEntity<ErrorResponse> concurrencia(PessimisticLockingFailureException ex, HttpServletRequest solicitud) {
+		LOG.warn("Conflicto de bloqueo en {}: {}", solicitud.getRequestURI(), ex.getMostSpecificCause().getMessage());
+		return responder(HttpStatus.CONFLICT, "CONFLICTO_CONCURRENCIA",
+				"La operación entró en conflicto con otra simultánea y se revirtió; puede reintentarse.", solicitud,
+				List.of());
 	}
 
 	@ExceptionHandler(Exception.class)

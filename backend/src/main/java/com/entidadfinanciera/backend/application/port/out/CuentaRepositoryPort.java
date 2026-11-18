@@ -24,6 +24,9 @@ public interface CuentaRepositoryPort {
 
 	Optional<Cuenta> buscarPorNumero(String numero);
 
+	/** Igual que {@link #buscarPorNumero} pero bloquea la fila hasta el fin de la transacción. */
+	Optional<Cuenta> buscarPorNumeroParaActualizar(String numero);
+
 	Pagina<Cuenta> listar(Optional<Long> clienteId, Optional<EstadoCuenta> estado, Paginacion paginacion);
 
 	List<Cuenta> listarPorCliente(Long clienteId);
