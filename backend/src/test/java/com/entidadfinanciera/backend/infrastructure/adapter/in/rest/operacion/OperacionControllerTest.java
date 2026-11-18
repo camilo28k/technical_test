@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +28,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.entidadfinanciera.backend.application.port.in.ConsultarOperacionesUseCase;
 import com.entidadfinanciera.backend.application.port.in.RegistrarOperacionesUseCase;
 import com.entidadfinanciera.backend.domain.exception.CuentaNoActivaException;
 import com.entidadfinanciera.backend.domain.exception.CuentaNoEncontradaException;
@@ -62,6 +64,9 @@ class OperacionControllerTest {
 
 	@MockitoBean
 	private RegistrarOperacionesUseCase operaciones;
+
+	@MockitoBean
+	private ConsultarOperacionesUseCase consultas;
 
 	private static Operacion operacion(ClaseOperacion clase, Sentido sentido, String saldo) {
 		return new Operacion(501L, clase, new BigDecimal("150000.00"), OffsetDateTime.parse("2026-11-16T16:00:00Z"),
@@ -204,6 +209,29 @@ class OperacionControllerTest {
 		mvc.perform(post("/api/v1/operaciones/3/reverso"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.codigo").value("REVERSO_NO_REVERSABLE"));
+	}
+
+	@Test
+	void consultarOperacionDevuelveSusMovimientosSinSaldoResultante() throws Exception {
+		when(consultas.consultarOperacion(501L)).thenReturn(new Operacion(501L, ClaseOperacion.TRANSFERENCIA,
+				new BigDecimal("30.00"), OffsetDateTime.parse("2026-11-16T16:00:00Z"), null,
+				List.of(new Movimiento(901L, 10L, "5300000001", Sentido.DEBITO, null),
+						new Movimiento(902L, 11L, "3300000004", Sentido.CREDITO, null))));
+
+		mvc.perform(get("/api/v1/operaciones/501"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.clase").value("TRANSFERENCIA"))
+			.andExpect(jsonPath("$.movimientos[1].numeroCuenta").value("3300000004"))
+			.andExpect(jsonPath("$.movimientos[0].saldoResultante").doesNotExist());
+	}
+
+	@Test
+	void consultarOperacionInexistenteDevuelve404() throws Exception {
+		when(consultas.consultarOperacion(9L)).thenThrow(new OperacionNoEncontradaException(9L));
+
+		mvc.perform(get("/api/v1/operaciones/9"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.codigo").value("OPERACION_NO_ENCONTRADA"));
 	}
 
 }
