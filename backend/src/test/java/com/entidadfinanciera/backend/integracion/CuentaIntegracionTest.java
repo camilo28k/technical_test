@@ -40,6 +40,8 @@ class CuentaIntegracionTest {
 
 	@BeforeEach
 	void preparar() throws Exception {
+		jdbc.execute("DELETE FROM movimiento");
+		jdbc.execute("DELETE FROM operacion");
 		jdbc.execute("DELETE FROM cuenta");
 		jdbc.execute("DELETE FROM cliente");
 		clienteId = id(enviar("POST", "/api/v1/clientes", """

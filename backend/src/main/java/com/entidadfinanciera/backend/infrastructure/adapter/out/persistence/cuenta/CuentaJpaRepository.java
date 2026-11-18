@@ -25,6 +25,10 @@ interface CuentaJpaRepository extends JpaRepository<CuentaEntity, Long>, JpaSpec
 	@Query("select c from CuentaEntity c where c.id = :id")
 	Optional<CuentaEntity> buscarParaActualizar(@Param("id") Long id);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select c from CuentaEntity c where c.numero = :numero")
+	Optional<CuentaEntity> buscarPorNumeroParaActualizar(@Param("numero") String numero);
+
 	@Query(value = "SELECT nextval('cuenta_ahorros_seq')", nativeQuery = true)
 	long siguienteSufijoAhorros();
 

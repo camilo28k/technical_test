@@ -12,6 +12,8 @@ import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 
 import com.entidadfinanciera.backend.domain.exception.CuentaCanceladaException;
+import com.entidadfinanciera.backend.domain.exception.CuentaNoActivaException;
+import com.entidadfinanciera.backend.domain.exception.FondosInsuficientesException;
 import com.entidadfinanciera.backend.domain.exception.SaldoDistintoDeCeroException;
 
 class CuentaTest {
@@ -108,6 +110,38 @@ class CuentaTest {
 
 		assertThat(cuenta.isExentaGmf()).isTrue();
 		assertThat(cuenta.getFechaModificacion()).isEqualTo(OffsetDateTime.now(DESPUES));
+	}
+
+	@Test
+	void acreditarYDebitarActualizanSaldoYModificacion() {
+		Cuenta cuenta = conEstado(EstadoCuenta.ACTIVA, "100.00");
+
+		cuenta.acreditar(new BigDecimal("50.25"), DESPUES);
+		cuenta.debitar(new BigDecimal("150.25"), DESPUES);
+
+		assertThat(cuenta.getSaldo()).isEqualByComparingTo("0");
+		assertThat(cuenta.getFechaModificacion()).isEqualTo(OffsetDateTime.now(DESPUES));
+	}
+
+	@Test
+	void debitarSinFondosNoAlteraElSaldo() {
+		Cuenta cuenta = conEstado(EstadoCuenta.ACTIVA, "100.00");
+
+		assertThatThrownBy(() -> cuenta.debitar(new BigDecimal("100.01"), DESPUES))
+			.isInstanceOf(FondosInsuficientesException.class);
+		assertThat(cuenta.getSaldo()).isEqualByComparingTo("100.00");
+	}
+
+	@Test
+	void cuentasInactivasOCanceladasNoAdmitenMovimientos() {
+		Cuenta inactiva = conEstado(EstadoCuenta.INACTIVA, "10.00");
+		Cuenta cancelada = conEstado(EstadoCuenta.CANCELADA, "0");
+
+		assertThatThrownBy(() -> inactiva.acreditar(BigDecimal.ONE, DESPUES)).isInstanceOf(CuentaNoActivaException.class);
+		assertThatThrownBy(() -> inactiva.debitar(BigDecimal.ONE, DESPUES)).isInstanceOf(CuentaNoActivaException.class);
+		assertThatThrownBy(() -> cancelada.acreditar(BigDecimal.ONE, DESPUES))
+			.isInstanceOf(CuentaNoActivaException.class);
+		assertThat(inactiva.getSaldo()).isEqualByComparingTo("10.00");
 	}
 
 }
