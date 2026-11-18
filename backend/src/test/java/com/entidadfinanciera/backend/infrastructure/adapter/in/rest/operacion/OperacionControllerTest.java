@@ -31,6 +31,7 @@ import com.entidadfinanciera.backend.application.port.in.RegistrarOperacionesUse
 import com.entidadfinanciera.backend.domain.exception.CuentaNoActivaException;
 import com.entidadfinanciera.backend.domain.exception.CuentaNoEncontradaException;
 import com.entidadfinanciera.backend.domain.exception.FondosInsuficientesException;
+import com.entidadfinanciera.backend.domain.exception.MismaCuentaException;
 import com.entidadfinanciera.backend.domain.model.ClaseOperacion;
 import com.entidadfinanciera.backend.domain.model.Movimiento;
 import com.entidadfinanciera.backend.domain.model.Operacion;
@@ -129,6 +130,47 @@ class OperacionControllerTest {
 		mvc.perform(post("/api/v1/operaciones/retiros").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.codigo").value("CONFLICTO_CONCURRENCIA"));
+	}
+
+	private static final String TRANSFERENCIA = """
+			{"numeroCuentaOrigen":"5300000001","numeroCuentaDestino":"3300000004","importe":"30000.00"}
+			""";
+
+	@Test
+	void transferirDevuelve201ConDebitoYCredito() throws Exception {
+		when(operaciones.transferir(eq("5300000001"), eq("3300000004"), any()))
+			.thenReturn(new Operacion(501L, ClaseOperacion.TRANSFERENCIA, new BigDecimal("30000.00"),
+					OffsetDateTime.parse("2026-11-16T16:00:00Z"), null,
+					List.of(new Movimiento(901L, 10L, "5300000001", Sentido.DEBITO, new BigDecimal("120000.00")),
+							new Movimiento(902L, 11L, "3300000004", Sentido.CREDITO, new BigDecimal("30000.00")))));
+
+		mvc.perform(post("/api/v1/operaciones/transferencias").contentType(MediaType.APPLICATION_JSON)
+			.content(TRANSFERENCIA))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.clase").value("TRANSFERENCIA"))
+			.andExpect(jsonPath("$.movimientos.length()").value(2))
+			.andExpect(jsonPath("$.movimientos[0].sentido").value("DEBITO"))
+			.andExpect(jsonPath("$.movimientos[0].saldoResultante").value("120000.00"))
+			.andExpect(jsonPath("$.movimientos[1].sentido").value("CREDITO"));
+	}
+
+	@Test
+	void transferirALaMismaCuentaDevuelve409() throws Exception {
+		when(operaciones.transferir(any(), any(), any())).thenThrow(new MismaCuentaException("5300000001"));
+
+		mvc.perform(post("/api/v1/operaciones/transferencias").contentType(MediaType.APPLICATION_JSON)
+			.content(TRANSFERENCIA))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.codigo").value("MISMA_CUENTA"));
+	}
+
+	@Test
+	void transferirSinDestinoDevuelve400() throws Exception {
+		mvc.perform(post("/api/v1/operaciones/transferencias").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"numeroCuentaOrigen\":\"5300000001\",\"importe\":\"10.00\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.detalles[0].campo").value("numeroCuentaDestino"));
+		verify(operaciones, never()).transferir(any(), any(), any());
 	}
 
 }

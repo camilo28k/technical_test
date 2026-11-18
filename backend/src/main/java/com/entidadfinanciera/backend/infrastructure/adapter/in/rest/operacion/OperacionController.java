@@ -42,4 +42,11 @@ public class OperacionController {
 		return OperacionResponse.desde(operaciones.retirar(solicitud.numeroCuenta(), solicitud.importe()), zona);
 	}
 
+	@PostMapping("/transferencias")
+	@ResponseStatus(HttpStatus.CREATED)
+	public OperacionResponse transferir(@Valid @RequestBody TransferenciaRequest solicitud) {
+		return OperacionResponse.desde(operaciones.transferir(solicitud.numeroCuentaOrigen(),
+				solicitud.numeroCuentaDestino(), solicitud.importe()), zona);
+	}
+
 }

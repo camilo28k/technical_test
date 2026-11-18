@@ -31,4 +31,10 @@ public class RegistrarOperacionesTransaccional implements RegistrarOperacionesUs
 		return delegado.retirar(numeroCuenta, importe);
 	}
 
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public Operacion transferir(String numeroCuentaOrigen, String numeroCuentaDestino, BigDecimal importe) {
+		return delegado.transferir(numeroCuentaOrigen, numeroCuentaDestino, importe);
+	}
+
 }
