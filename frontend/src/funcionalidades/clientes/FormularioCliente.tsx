@@ -85,7 +85,7 @@ export function FormularioCliente({ inicial = VACIO, textoBoton, onGuardar, onCa
         <Campo etiqueta="Nombres" error={errores.nombres}>
           <input value={datos.nombres} onChange={cambiar('nombres')} />
         </Campo>
-        <Campo etiqueta="Apellido" error={errores.apellido}>
+        <Campo etiqueta="Apellidos" error={errores.apellido}>
           <input value={datos.apellido} onChange={cambiar('apellido')} />
         </Campo>
         <Campo etiqueta="Correo" error={errores.correo}>
