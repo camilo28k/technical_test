@@ -7,7 +7,7 @@ async function llenar() {
   const u = userEvent.setup();
   await u.type(screen.getByLabelText('Número de identificación'), '1075123456');
   await u.type(screen.getByLabelText('Nombres'), 'Ana María');
-  await u.type(screen.getByLabelText('Apellido'), 'Gómez');
+  await u.type(screen.getByLabelText('Apellidos'), 'Gómez');
   await u.type(screen.getByLabelText('Correo'), 'ana@correo.com');
   await u.type(screen.getByLabelText('Fecha de nacimiento'), '1995-04-12');
   return u;
